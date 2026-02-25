@@ -78,7 +78,82 @@ export type Order = typeof orders.$inferSelect & {
   };
 };
 
-// Activities schema
+// ── Programas (Cursos descargables, coherente con app móvil) ───────────────────
+export const programas = pgTable("programas", {
+  id: serial("id").primaryKey(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  nombre: text("nombre").notNull(),
+  descripcion: text("descripcion"),
+  icono: varchar("icono", { length: 10 }).default("📖"),
+  imagenUrl: text("imagen_url"),
+  color: varchar("color", { length: 20 }).default("#3478F6"),
+  categoria: varchar("categoria", { length: 80 }).default("formacion-cristiana"),
+  version: varchar("version", { length: 20 }).default("1.0.0"),
+  totalDias: integer("total_dias").default(21),
+  duracion: varchar("duracion", { length: 50 }),
+  nivel: varchar("nivel", { length: 30 }).default("Básico"),
+  publicado: boolean("publicado").default(false),
+  creadoEn: timestamp("creado_en").defaultNow(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow(),
+});
+
+export const insertProgramaSchema = createInsertSchema(programas).pick({
+  slug: true,
+  nombre: true,
+  descripcion: true,
+  icono: true,
+  imagenUrl: true,
+  color: true,
+  categoria: true,
+  version: true,
+  totalDias: true,
+  duracion: true,
+  nivel: true,
+  publicado: true,
+});
+
+export type InsertPrograma = z.infer<typeof insertProgramaSchema>;
+export type Programa = typeof programas.$inferSelect;
+
+// ── Días de un programa ────────────────────────────────────────────────────────
+export const diasPrograma = pgTable("dias_programa", {
+  id: serial("id").primaryKey(),
+  programaId: integer("programa_id").notNull().references(() => programas.id, { onDelete: "cascade" }),
+  numero: integer("numero").notNull(),
+  titulo: text("titulo").notNull(),
+  descripcion: text("descripcion"),
+  versiculoRef: varchar("versiculo_ref", { length: 100 }),
+  versiculoTexto: text("versiculo_texto"),
+  reflexion: text("reflexion"),
+  actividadTitulo: varchar("actividad_titulo", { length: 200 }),
+  actividadDescripcion: text("actividad_descripcion"),
+  audioUrl: text("audio_url"),
+  videoUrl: text("video_url"),
+  ayunoDescripcion: text("ayuno_descripcion"),
+  lecturas: text("lecturas").array(),
+  creadoEn: timestamp("creado_en").defaultNow(),
+});
+
+export const insertDiaProgramaSchema = createInsertSchema(diasPrograma).pick({
+  programaId: true,
+  numero: true,
+  titulo: true,
+  descripcion: true,
+  versiculoRef: true,
+  versiculoTexto: true,
+  reflexion: true,
+  actividadTitulo: true,
+  actividadDescripcion: true,
+  audioUrl: true,
+  videoUrl: true,
+  ayunoDescripcion: true,
+  lecturas: true,
+});
+
+export type InsertDiaPrograma = z.infer<typeof insertDiaProgramaSchema>;
+export type DiaPrograma = typeof diasPrograma.$inferSelect;
+
+// ── Activities schema ─────────────────────────────────────────────────────────
 export const activities = pgTable("activities", {
   id: serial("id").primaryKey(),
   type: text("type").notNull(),
@@ -338,6 +413,31 @@ export type JobApplication = typeof jobApplications.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activities.$inferSelect;
 
+// ── Peticiones de Oración ──────────────────────────────────────────────────────
+export const peticionesOracion = pgTable("peticiones_oracion", {
+  id: serial("id").primaryKey(),
+  peticion: text("peticion").notNull(),
+  autor: text("autor").notNull(),
+  estado: varchar("estado", { length: 30 }).notNull().default("pendiente"), // pendiente | en-oracion | respondida
+  contadorOraciones: integer("contador_oraciones").notNull().default(0),
+  privada: boolean("privada").notNull().default(false),
+  categoria: varchar("categoria", { length: 80 }).notNull().default("general"),
+  creadoEn: timestamp("creado_en").defaultNow(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow(),
+});
+
+export const insertPeticionOracionSchema = createInsertSchema(peticionesOracion).pick({
+  peticion: true,
+  autor: true,
+  estado: true,
+  contadorOraciones: true,
+  privada: true,
+  categoria: true,
+});
+
+export type InsertPeticionOracion = z.infer<typeof insertPeticionOracionSchema>;
+export type PeticionOracion = typeof peticionesOracion.$inferSelect;
+
 
 // Relations
 export const userRelations = relations(users, ({ many }) => ({
@@ -512,3 +612,15 @@ export type DashboardStats = {
   productsTotal: string;
   productsChange: number;
 };
+
+// Programa relations
+export const programaRelations = relations(programas, ({ many }) => ({
+  dias: many(diasPrograma),
+}));
+
+export const diaProgramaRelations = relations(diasPrograma, ({ one }) => ({
+  programa: one(programas, {
+    fields: [diasPrograma.programaId],
+    references: [programas.id],
+  }),
+}));

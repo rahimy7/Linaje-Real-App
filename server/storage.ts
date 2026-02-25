@@ -13,8 +13,37 @@ import {
   InsertUserProfile,
   Job,
   ProfessionalArea,
-  UserProfile
+  UserProfile,
+  Category,
+  InsertCategory,
+  Subforum,
+  InsertSubforum,
+  Thread,
+  InsertThread,
+  Post,
+  InsertPost,
+  Reaction,
+  InsertReaction,
+  Bookmark,
+  InsertBookmark,
+  Subscription,
+  InsertSubscription,
+  PrivateMessage,
+  InsertPrivateMessage,
+  Notification,
+  InsertNotification,
+  programas,
+  diasPrograma,
+  type Programa,
+  type InsertPrograma,
+  type DiaPrograma,
+  type InsertDiaPrograma,
+  peticionesOracion,
+  type PeticionOracion,
+  type InsertPeticionOracion,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, asc, sql } from "drizzle-orm";
 
 // ============= INTERFACES AND TYPES =============
 
@@ -86,6 +115,79 @@ export interface IStorage {
 
   // System Stats
   getJobSystemStats(): Promise<JobSystemStats>;
+
+  // Forum Categories
+  getCategories(): Promise<Category[]>;
+  getCategory(id: number): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category>;
+
+  // Forum Subforums
+  getSubforums(categoryId?: number): Promise<Subforum[]>;
+  createSubforum(subforum: InsertSubforum): Promise<Subforum>;
+
+  // Forum Threads
+  getThreads(filters?: { categoryId?: number; subforumId?: number; authorId?: string }): Promise<Thread[]>;
+  getThread(id: number): Promise<Thread | undefined>;
+  createThread(thread: InsertThread): Promise<Thread>;
+  updateThread(id: number, thread: Partial<InsertThread>): Promise<Thread>;
+  deleteThread(id: number): Promise<void>;
+  incrementThreadViews(id: number): Promise<Thread>;
+
+  // Forum Posts
+  getPosts(threadId: number): Promise<Post[]>;
+  createPost(post: InsertPost): Promise<Post>;
+  updatePost(id: number, post: Partial<InsertPost>): Promise<Post>;
+  deletePost(id: number): Promise<void>;
+
+  // Reactions
+  getReactions(filters: { postId?: number; threadId?: number }): Promise<Reaction[]>;
+  createReaction(reaction: InsertReaction): Promise<Reaction>;
+  deleteReaction(id: number): Promise<void>;
+
+  // Bookmarks
+  getUserBookmarks(userId: string): Promise<Bookmark[]>;
+  createBookmark(bookmark: InsertBookmark): Promise<Bookmark>;
+  deleteBookmark(id: number): Promise<void>;
+
+  // Subscriptions
+  getUserSubscriptions(userId: string): Promise<Subscription[]>;
+  createSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  deleteSubscription(id: number): Promise<void>;
+
+  // Private Messages
+  getUserMessages(userId: string): Promise<PrivateMessage[]>;
+  createPrivateMessage(message: InsertPrivateMessage): Promise<PrivateMessage>;
+  markMessageAsRead(id: number): Promise<PrivateMessage>;
+
+  // Notifications
+  getUserNotifications(userId: string): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<Notification>;
+  markAllNotificationsAsRead(userId: string): Promise<void>;
+
+  // Programas (Cursos app móvil)
+  getProgramas(): Promise<import("@shared/schema").Programa[]>;
+  getPrograma(id: number): Promise<import("@shared/schema").Programa | undefined>;
+  createPrograma(programa: import("@shared/schema").InsertPrograma): Promise<import("@shared/schema").Programa>;
+  updatePrograma(id: number, programa: Partial<import("@shared/schema").InsertPrograma>): Promise<import("@shared/schema").Programa>;
+  deletePrograma(id: number): Promise<void>;
+  toggleProgramaPublicado(id: number): Promise<import("@shared/schema").Programa>;
+
+  // Días de programa
+  getDiasPrograma(programaId: number): Promise<import("@shared/schema").DiaPrograma[]>;
+  getDiaPrograma(id: number): Promise<import("@shared/schema").DiaPrograma | undefined>;
+  createDiaPrograma(dia: import("@shared/schema").InsertDiaPrograma): Promise<import("@shared/schema").DiaPrograma>;
+  updateDiaPrograma(id: number, dia: Partial<import("@shared/schema").InsertDiaPrograma>): Promise<import("@shared/schema").DiaPrograma>;
+  deleteDiaPrograma(id: number): Promise<void>;
+
+  // Peticiones de Oración
+  getPeticionesOracion(estado?: string): Promise<PeticionOracion[]>;
+  getPeticionOracion(id: number): Promise<PeticionOracion | undefined>;
+  createPeticionOracion(peticion: InsertPeticionOracion): Promise<PeticionOracion>;
+  updatePeticionOracion(id: number, peticion: Partial<InsertPeticionOracion>): Promise<PeticionOracion>;
+  deletePeticionOracion(id: number): Promise<void>;
+  incrementarContadorOraciones(id: number): Promise<PeticionOracion>;
 }
 
 // ============= MEMORY STORAGE IMPLEMENTATION =============
@@ -102,6 +204,24 @@ export class MemStorage implements IStorage {
   private jobs: Map<number, Job>;
   private userProfiles: Map<number, UserProfile>;
   private jobApplications: Map<number, JobApplication>;
+  
+  // Forum system maps
+  private categories: Map<number, Category>;
+  private subforums: Map<number, Subforum>;
+  private threads: Map<number, Thread>;
+  private posts: Map<number, Post>;
+  private reactions: Map<number, Reaction>;
+  private bookmarks: Map<number, Bookmark>;
+  private subscriptions: Map<number, Subscription>;
+  private privateMessages: Map<number, PrivateMessage>;
+  private notifications: Map<number, Notification>;
+
+  // Programas (Cursos app móvil)
+  private programas: Map<number, import("@shared/schema").Programa>;
+  private diasPrograma: Map<number, import("@shared/schema").DiaPrograma>;
+
+  // Peticiones de Oración
+  private peticionesOracionMap: Map<number, PeticionOracion>;
 
   currentId: number;
 
@@ -115,12 +235,26 @@ export class MemStorage implements IStorage {
     this.jobs = new Map();
     this.userProfiles = new Map();
     this.jobApplications = new Map();
+    this.categories = new Map();
+    this.subforums = new Map();
+    this.threads = new Map();
+    this.posts = new Map();
+    this.reactions = new Map();
+    this.bookmarks = new Map();
+    this.subscriptions = new Map();
+    this.privateMessages = new Map();
+    this.notifications = new Map();
+    this.programas = new Map();
+    this.diasPrograma = new Map();
+    this.peticionesOracionMap = new Map();
     
     this.currentId = 1;
     
     // Initialize sample data
     this.initializeSampleData();
     this.initializeJobsSampleData();
+    this.initializeForumSampleData();
+    this.initializeProgramasSampleData();
   }
 
   // ============= USER OPERATIONS =============
@@ -812,7 +946,875 @@ async getJobSystemStats(): Promise<JobSystemStats> {
       this.currentId
     ) + 1;
   }
+
+  // ============= FORUM CATEGORIES =============
+
+  async getCategories(): Promise<Category[]> {
+    return Array.from(this.categories.values()).sort((a, b) => a.position - b.position);
+  }
+
+  async getCategory(id: number): Promise<Category | undefined> {
+    return this.categories.get(id);
+  }
+
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    const id = this.currentId++;
+    const category: Category = {
+      ...insertCategory,
+      id,
+      description: insertCategory.description ?? null,
+      schedule: insertCategory.schedule ?? null,
+      maxParticipants: insertCategory.maxParticipants ?? null,
+      isActive: insertCategory.isActive ?? true,
+      position: insertCategory.position ?? 0,
+      createdAt: new Date()
+    };
+    this.categories.set(id, category);
+    return category;
+  }
+
+  async updateCategory(id: number, updates: Partial<InsertCategory>): Promise<Category> {
+    const category = this.categories.get(id);
+    if (!category) {
+      throw new Error("Category not found");
+    }
+    const updatedCategory = { ...category, ...updates };
+    this.categories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+
+  // ============= FORUM SUBFORUMS =============
+
+  async getSubforums(categoryId?: number): Promise<Subforum[]> {
+    let subforums = Array.from(this.subforums.values());
+    if (categoryId) {
+      subforums = subforums.filter(s => s.categoryId === categoryId);
+    }
+    return subforums.sort((a, b) => a.position - b.position);
+  }
+
+  async createSubforum(insertSubforum: InsertSubforum): Promise<Subforum> {
+    const id = this.currentId++;
+    const subforum: Subforum = {
+      ...insertSubforum,
+      id,
+      description: insertSubforum.description ?? null,
+      isActive: insertSubforum.isActive ?? true,
+      position: insertSubforum.position ?? 0,
+      createdAt: new Date()
+    };
+    this.subforums.set(id, subforum);
+    return subforum;
+  }
+
+  // ============= FORUM THREADS =============
+
+  async getThreads(filters?: { categoryId?: number; subforumId?: number; authorId?: string }): Promise<Thread[]> {
+    let threads = Array.from(this.threads.values());
+    
+    if (filters) {
+      if (filters.categoryId) {
+        threads = threads.filter(t => t.categoryId === filters.categoryId);
+      }
+      if (filters.subforumId) {
+        threads = threads.filter(t => t.subforumId === filters.subforumId);
+      }
+      if (filters.authorId) {
+        threads = threads.filter(t => t.authorId === filters.authorId);
+      }
+    }
+
+    return threads.sort((a, b) => {
+      // Sticky threads first
+      if (a.isSticky && !b.isSticky) return -1;
+      if (!a.isSticky && b.isSticky) return 1;
+      
+      // Then by last reply or creation date
+      const dateA = a.lastReplyAt || a.createdAt;
+      const dateB = b.lastReplyAt || b.createdAt;
+      return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+    });
+  }
+
+  async getThread(id: number): Promise<Thread | undefined> {
+    return this.threads.get(id);
+  }
+
+  async createThread(insertThread: InsertThread): Promise<Thread> {
+    const id = this.currentId++;
+    const thread: Thread = {
+      ...insertThread,
+      id,
+      subforumId: insertThread.subforumId ?? null,
+      lastReplyAt: insertThread.lastReplyAt ?? null,
+      lastReplyBy: insertThread.lastReplyBy ?? null,
+      isSticky: insertThread.isSticky ?? false,
+      isLocked: insertThread.isLocked ?? false,
+      viewCount: insertThread.viewCount ?? 0,
+      replyCount: insertThread.replyCount ?? 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.threads.set(id, thread);
+    return thread;
+  }
+
+  async updateThread(id: number, updates: Partial<InsertThread>): Promise<Thread> {
+    const thread = this.threads.get(id);
+    if (!thread) {
+      throw new Error("Thread not found");
+    }
+    const updatedThread = { ...thread, ...updates, updatedAt: new Date() };
+    this.threads.set(id, updatedThread);
+    return updatedThread;
+  }
+
+  async deleteThread(id: number): Promise<void> {
+    // Delete all posts in this thread
+    Array.from(this.posts.entries())
+      .filter(([_, post]) => post.threadId === id)
+      .forEach(([postId]) => this.posts.delete(postId));
+    
+    // Delete all reactions for this thread
+    Array.from(this.reactions.entries())
+      .filter(([_, reaction]) => reaction.threadId === id)
+      .forEach(([reactionId]) => this.reactions.delete(reactionId));
+    
+    // Delete all bookmarks for this thread
+    Array.from(this.bookmarks.entries())
+      .filter(([_, bookmark]) => bookmark.threadId === id)
+      .forEach(([bookmarkId]) => this.bookmarks.delete(bookmarkId));
+    
+    this.threads.delete(id);
+  }
+
+  async incrementThreadViews(id: number): Promise<Thread> {
+    const thread = this.threads.get(id);
+    if (!thread) {
+      throw new Error("Thread not found");
+    }
+    const updatedThread = { ...thread, viewCount: thread.viewCount + 1 };
+    this.threads.set(id, updatedThread);
+    return updatedThread;
+  }
+
+  // ============= FORUM POSTS =============
+
+  async getPosts(threadId: number): Promise<Post[]> {
+    const posts = Array.from(this.posts.values())
+      .filter(p => p.threadId === threadId);
+    return posts.sort((a, b) => {
+      const dateA = a.createdAt?.getTime() || 0;
+      const dateB = b.createdAt?.getTime() || 0;
+      return dateA - dateB;
+    });
+  }
+
+  async createPost(insertPost: InsertPost): Promise<Post> {
+    const id = this.currentId++;
+    const post: Post = {
+      ...insertPost,
+      id,
+      parentId: insertPost.parentId ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.posts.set(id, post);
+
+    // Update thread reply count and last reply info
+    const thread = this.threads.get(insertPost.threadId);
+    if (thread) {
+      const updatedThread = {
+        ...thread,
+        replyCount: thread.replyCount + 1,
+        lastReplyAt: new Date(),
+        lastReplyBy: insertPost.authorId,
+        updatedAt: new Date()
+      };
+      this.threads.set(insertPost.threadId, updatedThread);
+    }
+
+    return post;
+  }
+
+  async updatePost(id: number, updates: Partial<InsertPost>): Promise<Post> {
+    const post = this.posts.get(id);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+    const updatedPost = { ...post, ...updates, updatedAt: new Date() };
+    this.posts.set(id, updatedPost);
+    return updatedPost;
+  }
+
+  async deletePost(id: number): Promise<void> {
+    const post = this.posts.get(id);
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Delete child posts
+    Array.from(this.posts.entries())
+      .filter(([_, p]) => p.parentId === id)
+      .forEach(([postId]) => this.posts.delete(postId));
+    
+    // Delete reactions for this post
+    Array.from(this.reactions.entries())
+      .filter(([_, reaction]) => reaction.postId === id)
+      .forEach(([reactionId]) => this.reactions.delete(reactionId));
+    
+    this.posts.delete(id);
+
+    // Update thread reply count
+    const thread = this.threads.get(post.threadId);
+    if (thread) {
+      const updatedThread = {
+        ...thread,
+        replyCount: Math.max(0, thread.replyCount - 1)
+      };
+      this.threads.set(post.threadId, updatedThread);
+    }
+  }
+
+  // ============= REACTIONS =============
+
+  async getReactions(filters: { postId?: number; threadId?: number }): Promise<Reaction[]> {
+    let reactions = Array.from(this.reactions.values());
+    
+    if (filters.postId) {
+      reactions = reactions.filter(r => r.postId === filters.postId);
+    }
+    if (filters.threadId) {
+      reactions = reactions.filter(r => r.threadId === filters.threadId);
+    }
+    
+    return reactions;
+  }
+
+  async createReaction(insertReaction: InsertReaction): Promise<Reaction> {
+    const id = this.currentId++;
+    const reaction: Reaction = {
+      ...insertReaction,
+      id,
+      type: insertReaction.type ?? 'like',
+      postId: insertReaction.postId ?? null,
+      threadId: insertReaction.threadId ?? null,
+      createdAt: new Date()
+    };
+    this.reactions.set(id, reaction);
+    return reaction;
+  }
+
+  async deleteReaction(id: number): Promise<void> {
+    this.reactions.delete(id);
+  }
+
+  // ============= BOOKMARKS =============
+
+  async getUserBookmarks(userId: string): Promise<Bookmark[]> {
+    return Array.from(this.bookmarks.values())
+      .filter(b => b.userId === userId)
+      .sort((a, b) => {
+        const dateA = a.createdAt?.getTime() || 0;
+        const dateB = b.createdAt?.getTime() || 0;
+        return dateB - dateA;
+      });
+  }
+
+  async createBookmark(insertBookmark: InsertBookmark): Promise<Bookmark> {
+    const id = this.currentId++;
+    const bookmark: Bookmark = {
+      ...insertBookmark,
+      id,
+      createdAt: new Date()
+    };
+    this.bookmarks.set(id, bookmark);
+    return bookmark;
+  }
+
+  async deleteBookmark(id: number): Promise<void> {
+    this.bookmarks.delete(id);
+  }
+
+  // ============= SUBSCRIPTIONS =============
+
+  async getUserSubscriptions(userId: string): Promise<Subscription[]> {
+    return Array.from(this.subscriptions.values())
+      .filter(s => s.userId === userId);
+  }
+
+  async createSubscription(insertSubscription: InsertSubscription): Promise<Subscription> {
+    const id = this.currentId++;
+    const subscription: Subscription = {
+      ...insertSubscription,
+      id,
+      notificationLevel: insertSubscription.notificationLevel ?? 'all',
+      categoryId: insertSubscription.categoryId ?? null,
+      subforumId: insertSubscription.subforumId ?? null,
+      threadId: insertSubscription.threadId ?? null,
+      createdAt: new Date()
+    };
+    this.subscriptions.set(id, subscription);
+    return subscription;
+  }
+
+  async deleteSubscription(id: number): Promise<void> {
+    this.subscriptions.delete(id);
+  }
+
+  // ============= PRIVATE MESSAGES =============
+
+  async getUserMessages(userId: string): Promise<PrivateMessage[]> {
+    return Array.from(this.privateMessages.values())
+      .filter(m => m.fromUserId === userId || m.toUserId === userId)
+      .sort((a, b) => {
+        const dateA = a.createdAt?.getTime() || 0;
+        const dateB = b.createdAt?.getTime() || 0;
+        return dateB - dateA;
+      });
+  }
+
+  async createPrivateMessage(insertMessage: InsertPrivateMessage): Promise<PrivateMessage> {
+    const id = this.currentId++;
+    const message: PrivateMessage = {
+      ...insertMessage,
+      id,
+      isRead: insertMessage.isRead ?? false,
+      createdAt: new Date()
+    };
+    this.privateMessages.set(id, message);
+    return message;
+  }
+
+  async markMessageAsRead(id: number): Promise<PrivateMessage> {
+    const message = this.privateMessages.get(id);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+    const updatedMessage = { ...message, isRead: true };
+    this.privateMessages.set(id, updatedMessage);
+    return updatedMessage;
+  }
+
+  // ============= NOTIFICATIONS =============
+
+  async getUserNotifications(userId: string): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId)
+      .sort((a, b) => {
+        const dateA = a.createdAt?.getTime() || 0;
+        const dateB = b.createdAt?.getTime() || 0;
+        return dateB - dateA;
+      });
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const id = this.currentId++;
+    const notification: Notification = {
+      ...insertNotification,
+      id,
+      isRead: insertNotification.isRead ?? false,
+      content: insertNotification.content ?? null,
+      relatedId: insertNotification.relatedId ?? null,
+      relatedType: insertNotification.relatedType ?? null,
+      createdAt: new Date()
+    };
+    this.notifications.set(id, notification);
+    return notification;
+  }
+
+  async markNotificationAsRead(id: number): Promise<Notification> {
+    const notification = this.notifications.get(id);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+    const updatedNotification = { ...notification, isRead: true };
+    this.notifications.set(id, updatedNotification);
+    return updatedNotification;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    Array.from(this.notifications.entries())
+      .filter(([_, notification]) => notification.userId === userId && !notification.isRead)
+      .forEach(([id, notification]) => {
+        this.notifications.set(id, { ...notification, isRead: true });
+      });
+  }
+
+  // ============= PROGRAMAS OPERATIONS =============
+
+  async getProgramas(): Promise<import("@shared/schema").Programa[]> {
+    return Array.from(this.programas.values()).sort((a, b) => a.id - b.id);
+  }
+
+  async getPrograma(id: number): Promise<import("@shared/schema").Programa | undefined> {
+    return this.programas.get(id);
+  }
+
+  async createPrograma(programa: import("@shared/schema").InsertPrograma): Promise<import("@shared/schema").Programa> {
+    const id = this.currentId++;
+    const nuevo: import("@shared/schema").Programa = {
+      id,
+      slug: programa.slug,
+      nombre: programa.nombre,
+      descripcion: programa.descripcion ?? null,
+      icono: programa.icono ?? "📖",
+      imagenUrl: programa.imagenUrl ?? null,
+      color: programa.color ?? "#3478F6",
+      categoria: programa.categoria ?? "formacion-cristiana",
+      version: programa.version ?? "1.0.0",
+      totalDias: programa.totalDias ?? 21,
+      duracion: programa.duracion ?? null,
+      nivel: programa.nivel ?? "Básico",
+      publicado: programa.publicado ?? false,
+      creadoEn: new Date(),
+      actualizadoEn: new Date(),
+    };
+    this.programas.set(id, nuevo);
+    return nuevo;
+  }
+
+  async updatePrograma(id: number, cambios: Partial<import("@shared/schema").InsertPrograma>): Promise<import("@shared/schema").Programa> {
+    const existing = this.programas.get(id);
+    if (!existing) throw new Error(`Programa ${id} no encontrado`);
+    const updated: import("@shared/schema").Programa = {
+      ...existing,
+      ...cambios,
+      actualizadoEn: new Date(),
+    } as import("@shared/schema").Programa;
+    this.programas.set(id, updated);
+    return updated;
+  }
+
+  async deletePrograma(id: number): Promise<void> {
+    this.programas.delete(id);
+    // Cascade: remove dias
+    Array.from(this.diasPrograma.entries())
+      .filter(([_, d]) => d.programaId === id)
+      .forEach(([did]) => this.diasPrograma.delete(did));
+  }
+
+  async toggleProgramaPublicado(id: number): Promise<import("@shared/schema").Programa> {
+    const p = this.programas.get(id);
+    if (!p) throw new Error(`Programa ${id} no encontrado`);
+    return this.updatePrograma(id, { publicado: !p.publicado });
+  }
+
+  // ── Días de programa ──────────────────────────────────────────────────────
+  async getDiasPrograma(programaId: number): Promise<import("@shared/schema").DiaPrograma[]> {
+    return Array.from(this.diasPrograma.values())
+      .filter(d => d.programaId === programaId)
+      .sort((a, b) => a.numero - b.numero);
+  }
+
+  async getDiaPrograma(id: number): Promise<import("@shared/schema").DiaPrograma | undefined> {
+    return this.diasPrograma.get(id);
+  }
+
+  async createDiaPrograma(dia: import("@shared/schema").InsertDiaPrograma): Promise<import("@shared/schema").DiaPrograma> {
+    const id = this.currentId++;
+    const nuevo: import("@shared/schema").DiaPrograma = {
+      id,
+      programaId: dia.programaId,
+      numero: dia.numero,
+      titulo: dia.titulo,
+      descripcion: dia.descripcion ?? null,
+      versiculoRef: dia.versiculoRef ?? null,
+      versiculoTexto: dia.versiculoTexto ?? null,
+      reflexion: dia.reflexion ?? null,
+      actividadTitulo: dia.actividadTitulo ?? null,
+      actividadDescripcion: dia.actividadDescripcion ?? null,
+      audioUrl: dia.audioUrl ?? null,
+      videoUrl: dia.videoUrl ?? null,
+      ayunoDescripcion: dia.ayunoDescripcion ?? null,
+      lecturas: dia.lecturas ?? null,
+      creadoEn: new Date(),
+    };
+    this.diasPrograma.set(id, nuevo);
+    // Actualizar totalDias del programa
+    const prog = this.programas.get(dia.programaId);
+    if (prog) {
+      const count = Array.from(this.diasPrograma.values()).filter(d => d.programaId === dia.programaId).length;
+      this.programas.set(dia.programaId, { ...prog, totalDias: count, actualizadoEn: new Date() });
+    }
+    return nuevo;
+  }
+
+  async updateDiaPrograma(id: number, cambios: Partial<import("@shared/schema").InsertDiaPrograma>): Promise<import("@shared/schema").DiaPrograma> {
+    const existing = this.diasPrograma.get(id);
+    if (!existing) throw new Error(`Día ${id} no encontrado`);
+    const updated = { ...existing, ...cambios };
+    this.diasPrograma.set(id, updated);
+    return updated;
+  }
+
+  async deleteDiaPrograma(id: number): Promise<void> {
+    const dia = this.diasPrograma.get(id);
+    this.diasPrograma.delete(id);
+    if (dia) {
+      const prog = this.programas.get(dia.programaId);
+      if (prog) {
+        const count = Array.from(this.diasPrograma.values()).filter(d => d.programaId === dia.programaId).length;
+        this.programas.set(dia.programaId, { ...prog, totalDias: count, actualizadoEn: new Date() });
+      }
+    }
+  }
+
+  // ============= PROGRAMAS SAMPLE DATA =============
+  // DatabaseStorage usa datos reales de la BD. Este método no inserta datos de muestra.
+
+  protected initializeProgramasSampleData() {
+    // No se cargan datos de muestra - DatabaseStorage usa PostgreSQL
+  }
+
+  // ============= FORUM SAMPLE DATA =============
+
+  private initializeForumSampleData() {
+    // Sample categories (using data from mock-forum.ts structure)
+    const sampleCategories = [
+      {
+        id: 1,
+        name: "Comunión Diaria",
+        description: "Reflexiones y comunión diaria con Dios",
+        icon: "BookOpen",
+        color: "blue",
+        slug: "comunion-diaria",
+        position: 1,
+        schedule: "Lunes a Viernes, 7:00 AM",
+        maxParticipants: 100,
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        id: 2,
+        name: "Cursos Bíblicos",
+        description: "Aprende más sobre la Palabra de Dios",
+        icon: "GraduationCap",
+        color: "green",
+        slug: "cursos-biblicos",
+        position: 2,
+        schedule: null,
+        maxParticipants: null,
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        id: 3,
+        name: "Eventos",
+        description: "Próximos eventos y actividades de la iglesia",
+        icon: "Calendar",
+        color: "purple",
+        slug: "eventos",
+        position: 3,
+        schedule: null,
+        maxParticipants: null,
+        isActive: true,
+        createdAt: new Date()
+      }
+    ];
+
+    sampleCategories.forEach(cat => {
+      this.categories.set(cat.id, cat);
+    });
+
+    // Sample threads
+    const sampleThreads = [
+      {
+        id: 1,
+        categoryId: 1,
+        subforumId: null,
+        authorId: "1",
+        title: "Reflexión del día - La fe que mueve montañas",
+        content: "Hoy quiero compartir una reflexión sobre Mateo 17:20...",
+        isSticky: true,
+        isLocked: false,
+        viewCount: 145,
+        replyCount: 23,
+        lastReplyAt: new Date(Date.now() - 1000 * 60 * 30),
+        lastReplyBy: "2",
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 30)
+      },
+      {
+        id: 2,
+        categoryId: 2,
+        subforumId: null,
+        authorId: "1",
+        title: "Nuevo curso: Introducción al Antiguo Testamento",
+        content: "Estamos iniciando un nuevo curso sobre el Antiguo Testamento...",
+        isSticky: false,
+        isLocked: false,
+        viewCount: 89,
+        replyCount: 12,
+        lastReplyAt: new Date(Date.now() - 1000 * 60 * 120),
+        lastReplyBy: "2",
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 120)
+      },
+      {
+        id: 3,
+        categoryId: 3,
+        subforumId: null,
+        authorId: "2",
+        title: "Retiro Espiritual - Próximo fin de semana",
+        content: "¡Únete a nuestro retiro espiritual! Será un tiempo de renovación...",
+        isSticky: true,
+        isLocked: false,
+        viewCount: 234,
+        replyCount: 45,
+        lastReplyAt: new Date(Date.now() - 1000 * 60 * 15),
+        lastReplyBy: "1",
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 15)
+      }
+    ];
+
+    sampleThreads.forEach(thread => {
+      this.threads.set(thread.id, thread);
+    });
+
+    // Sample posts
+    const samplePosts = [
+      {
+        id: 1,
+        threadId: 1,
+        authorId: "2",
+        content: "¡Excelente reflexión! Me encanta cómo explicas el poder de la fe.",
+        parentId: null,
+        isModerated: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 30),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 30)
+      },
+      {
+        id: 2,
+        threadId: 1,
+        authorId: "1",
+        content: "Gracias por tus palabras. La fe es fundamental en nuestra vida cristiana.",
+        parentId: 1,
+        isModerated: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 25),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 25)
+      },
+      {
+        id: 3,
+        threadId: 2,
+        authorId: "2",
+        content: "¿Cuándo inicia el curso y cuál es el horario?",
+        parentId: null,
+        isModerated: false,
+        createdAt: new Date(Date.now() - 1000 * 60 * 120),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 120)
+      }
+    ];
+
+    samplePosts.forEach(post => {
+      this.posts.set(post.id, post);
+    });
+  }
+
+  // ---- Peticiones de Oración (MemStorage) ----
+
+  async getPeticionesOracion(estado?: string): Promise<PeticionOracion[]> {
+    const all = Array.from(this.peticionesOracionMap.values());
+    if (estado) return all.filter(p => p.estado === estado);
+    return all.sort((a, b) => (b.creadoEn?.getTime() ?? 0) - (a.creadoEn?.getTime() ?? 0));
+  }
+
+  async getPeticionOracion(id: number): Promise<PeticionOracion | undefined> {
+    return this.peticionesOracionMap.get(id);
+  }
+
+  async createPeticionOracion(data: InsertPeticionOracion): Promise<PeticionOracion> {
+    const id = this.currentId++;
+    const now = new Date();
+    const peticion: PeticionOracion = {
+      id,
+      peticion: data.peticion,
+      autor: data.autor,
+      estado: data.estado ?? "pendiente",
+      contadorOraciones: data.contadorOraciones ?? 0,
+      privada: data.privada ?? false,
+      categoria: data.categoria ?? "general",
+      creadoEn: now,
+      actualizadoEn: now,
+    };
+    this.peticionesOracionMap.set(id, peticion);
+    return peticion;
+  }
+
+  async updatePeticionOracion(id: number, data: Partial<InsertPeticionOracion>): Promise<PeticionOracion> {
+    const existing = this.peticionesOracionMap.get(id);
+    if (!existing) throw new Error(`Petición ${id} no encontrada`);
+    const updated: PeticionOracion = { ...existing, ...data, actualizadoEn: new Date() };
+    this.peticionesOracionMap.set(id, updated);
+    return updated;
+  }
+
+  async deletePeticionOracion(id: number): Promise<void> {
+    this.peticionesOracionMap.delete(id);
+  }
+
+  async incrementarContadorOraciones(id: number): Promise<PeticionOracion> {
+    const existing = this.peticionesOracionMap.get(id);
+    if (!existing) throw new Error(`Petición ${id} no encontrada`);
+    const updated: PeticionOracion = {
+      ...existing,
+      contadorOraciones: existing.contadorOraciones + 1,
+      actualizadoEn: new Date(),
+    };
+    this.peticionesOracionMap.set(id, updated);
+    return updated;
+  }
 }
 
-// Export the storage instance
-export const storage = new MemStorage();
+// ============= DATABASE STORAGE (overrides Programas / Días with real DB) =============
+
+export class DatabaseStorage extends MemStorage {
+
+  // Prevent in-memory sample programas from being loaded – DB is the source of truth
+  protected override initializeProgramasSampleData(): void {
+    // no-op: data is persisted in PostgreSQL
+  }
+
+  // ── Programas ─────────────────────────────────────────────────────────────
+
+  override async getProgramas(): Promise<Programa[]> {
+    return db.select().from(programas).orderBy(asc(programas.creadoEn));
+  }
+
+  override async getPrograma(id: number): Promise<Programa | undefined> {
+    const rows = await db.select().from(programas).where(eq(programas.id, id));
+    return rows[0];
+  }
+
+  override async createPrograma(data: InsertPrograma): Promise<Programa> {
+    const rows = await db.insert(programas).values(data).returning();
+    return rows[0];
+  }
+
+  override async updatePrograma(id: number, data: Partial<InsertPrograma>): Promise<Programa> {
+    const rows = await db
+      .update(programas)
+      .set({ ...data, actualizadoEn: new Date() })
+      .where(eq(programas.id, id))
+      .returning();
+    if (!rows[0]) throw new Error(`Programa ${id} no encontrado`);
+    return rows[0];
+  }
+
+  override async deletePrograma(id: number): Promise<void> {
+    // diasPrograma cascade is handled by the FK onDelete: "cascade"
+    await db.delete(programas).where(eq(programas.id, id));
+  }
+
+  override async toggleProgramaPublicado(id: number): Promise<Programa> {
+    const current = await this.getPrograma(id);
+    if (!current) throw new Error(`Programa ${id} no encontrado`);
+    return this.updatePrograma(id, { publicado: !current.publicado });
+  }
+
+  // ── Días de programa ──────────────────────────────────────────────────────
+
+  override async getDiasPrograma(programaId: number): Promise<DiaPrograma[]> {
+    return db
+      .select()
+      .from(diasPrograma)
+      .where(eq(diasPrograma.programaId, programaId))
+      .orderBy(asc(diasPrograma.numero));
+  }
+
+  override async getDiaPrograma(id: number): Promise<DiaPrograma | undefined> {
+    const rows = await db.select().from(diasPrograma).where(eq(diasPrograma.id, id));
+    return rows[0];
+  }
+
+  override async createDiaPrograma(data: InsertDiaPrograma): Promise<DiaPrograma> {
+    const rows = await db.insert(diasPrograma).values(data).returning();
+    // Update totalDias on the parent programa
+    await db
+      .update(programas)
+      .set({
+        totalDias: sql`(SELECT COUNT(*) FROM dias_programa WHERE programa_id = ${data.programaId})`,
+        actualizadoEn: new Date(),
+      })
+      .where(eq(programas.id, data.programaId));
+    return rows[0];
+  }
+
+  override async updateDiaPrograma(id: number, data: Partial<InsertDiaPrograma>): Promise<DiaPrograma> {
+    const rows = await db
+      .update(diasPrograma)
+      .set(data)
+      .where(eq(diasPrograma.id, id))
+      .returning();
+    if (!rows[0]) throw new Error(`Día ${id} no encontrado`);
+    return rows[0];
+  }
+
+  override async deleteDiaPrograma(id: number): Promise<void> {
+    const dia = await this.getDiaPrograma(id);
+    await db.delete(diasPrograma).where(eq(diasPrograma.id, id));
+    if (dia) {
+      await db
+        .update(programas)
+        .set({
+          totalDias: sql`(SELECT COUNT(*) FROM dias_programa WHERE programa_id = ${dia.programaId})`,
+          actualizadoEn: new Date(),
+        })
+        .where(eq(programas.id, dia.programaId));
+    }
+  }
+
+  // ── Peticiones de Oración ─────────────────────────────────────────────────
+
+  override async getPeticionesOracion(estado?: string): Promise<PeticionOracion[]> {
+    if (estado) {
+      return db
+        .select()
+        .from(peticionesOracion)
+        .where(eq(peticionesOracion.estado, estado))
+        .orderBy(sql`${peticionesOracion.creadoEn} DESC`);
+    }
+    return db.select().from(peticionesOracion).orderBy(sql`${peticionesOracion.creadoEn} DESC`);
+  }
+
+  override async getPeticionOracion(id: number): Promise<PeticionOracion | undefined> {
+    const rows = await db.select().from(peticionesOracion).where(eq(peticionesOracion.id, id));
+    return rows[0];
+  }
+
+  override async createPeticionOracion(data: InsertPeticionOracion): Promise<PeticionOracion> {
+    const rows = await db.insert(peticionesOracion).values(data).returning();
+    return rows[0];
+  }
+
+  override async updatePeticionOracion(id: number, data: Partial<InsertPeticionOracion>): Promise<PeticionOracion> {
+    const rows = await db
+      .update(peticionesOracion)
+      .set({ ...data, actualizadoEn: new Date() })
+      .where(eq(peticionesOracion.id, id))
+      .returning();
+    if (!rows[0]) throw new Error(`Petición ${id} no encontrada`);
+    return rows[0];
+  }
+
+  override async deletePeticionOracion(id: number): Promise<void> {
+    await db.delete(peticionesOracion).where(eq(peticionesOracion.id, id));
+  }
+
+  override async incrementarContadorOraciones(id: number): Promise<PeticionOracion> {
+    const rows = await db
+      .update(peticionesOracion)
+      .set({
+        contadorOraciones: sql`${peticionesOracion.contadorOraciones} + 1`,
+        actualizadoEn: new Date(),
+      })
+      .where(eq(peticionesOracion.id, id))
+      .returning();
+    if (!rows[0]) throw new Error(`Petición ${id} no encontrada`);
+    return rows[0];
+  }
+}
+
+// Export the storage instance – uses real DB for programas/días, MemStorage for the rest
+export const storage = new DatabaseStorage();

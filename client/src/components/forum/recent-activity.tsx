@@ -6,13 +6,15 @@ import { MessageSquare, Plus, Heart } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Link } from "wouter";
-import { mockRecentActivity } from "@/data/mock-forum";
 
 export default function RecentActivity() {
-  const { data: activity = mockRecentActivity, isLoading } = useQuery({
-    queryKey: ["/api/activity/recent"],
-    queryFn: async () => mockRecentActivity,
-    initialData: mockRecentActivity,
+  const { data: activity = [], isLoading } = useQuery({
+    queryKey: ["/api/activities/recent"],
+    queryFn: async () => {
+      const res = await fetch('/api/activities/recent');
+      if (!res.ok) return [];
+      return res.json();
+    },
   });
 
   return (

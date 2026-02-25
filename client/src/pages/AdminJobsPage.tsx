@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { 
   Briefcase, 
   MapPin, 
@@ -56,182 +57,45 @@ export default function AdminJobsPage() {
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
 
-  // Mock Data
-  const mockJobStats = {
-    totalJobs: 12,
-    jobsThisMonth: 3,
-    totalApplications: 28,
-    applicationsThisWeek: 8,
-    activeProfiles: 15,
-    profilesAvailable: 12,
-    successRate: "35.7"
+  // Fetch data from API
+  const { data: professionalAreas = [] } = useQuery<any[]>({
+    queryKey: ["/api/professional-areas"],
+  });
+
+  const { data: jobs = [] } = useQuery<any[]>({
+    queryKey: ["/api/jobs"],
+  });
+
+  const { data: profiles = [] } = useQuery<any[]>({
+    queryKey: ["/api/user-profiles"],
+  });
+
+  const { data: applications = [] } = useQuery<any[]>({
+    queryKey: ["/api/job-applications"],
+  });
+
+  // Calculate stats from real data
+  const jobStats = {
+    totalJobs: jobs.length,
+    jobsThisMonth: jobs.filter((job: any) => {
+      const createdDate = new Date(job.createdAt);
+      const now = new Date();
+      return createdDate.getMonth() === now.getMonth() && 
+             createdDate.getFullYear() === now.getFullYear();
+    }).length,
+    totalApplications: applications.length,
+    applicationsThisWeek: applications.filter((app: any) => {
+      const appliedDate = new Date(app.appliedAt);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return appliedDate >= weekAgo;
+    }).length,
+    activeProfiles: profiles.filter((p: any) => p.availableForWork).length,
+    profilesAvailable: profiles.length,
+    successRate: applications.length > 0 
+      ? ((applications.filter((a: any) => a.status === 'accepted').length / applications.length) * 100).toFixed(1)
+      : "0"
   };
-
-  const mockProfessionalAreas = [
-    { id: 1, name: "Tecnología", description: "Desarrollo de software, IT, sistemas" },
-    { id: 2, name: "Marketing", description: "Marketing digital, publicidad, ventas" },
-    { id: 3, name: "Finanzas", description: "Contabilidad, análisis financiero, banca" },
-    { id: 4, name: "Recursos Humanos", description: "Gestión de talento, reclutamiento" },
-    { id: 5, name: "Diseño", description: "Diseño gráfico, UX/UI, creatividad" },
-  ];
-
-  const mockJobs = [
-    {
-      id: 1,
-      title: "Desarrollador Frontend React",
-      company: "TechCorp",
-      description: "Buscamos un desarrollador frontend con experiencia en React y TypeScript para unirse a nuestro equipo de desarrollo de productos.",
-      requirements: ["React", "TypeScript", "CSS", "Git"],
-      benefits: ["Trabajo remoto", "Seguro médico", "Capacitaciones"],
-      professionalAreaId: 1,
-      location: "Santo Domingo, RD",
-      jobType: "full-time",
-      experienceLevel: "mid",
-      salaryRange: "$35,000 - $45,000",
-      contactEmail: "reclutamiento@techcorp.com",
-      contactPhone: "809-555-0123",
-      isActive: true,
-      publishedBy: 1,
-      createdAt: new Date(2024, 7, 15),
-      updatedAt: new Date(2024, 7, 15)
-    },
-    {
-      id: 2,
-      title: "Especialista en Marketing Digital",
-      company: "MarketPro",
-      description: "Buscamos un especialista en marketing digital para gestionar nuestras campañas en redes sociales y SEO.",
-      requirements: ["Google Ads", "Facebook Ads", "SEO", "Analytics"],
-      benefits: ["Horario flexible", "Bonos por rendimiento"],
-      professionalAreaId: 2,
-      location: "Santiago, RD",
-      jobType: "full-time",
-      experienceLevel: "entry",
-      salaryRange: "$25,000 - $32,000",
-      contactEmail: "jobs@marketpro.com",
-      isActive: true,
-      publishedBy: 1,
-      createdAt: new Date(2024, 7, 20),
-      updatedAt: new Date(2024, 7, 20)
-    },
-    {
-      id: 3,
-      title: "Diseñador UX/UI",
-      company: "DesignStudio",
-      description: "Únete a nuestro equipo creativo como diseñador UX/UI para crear experiencias digitales excepcionales.",
-      requirements: ["Figma", "Adobe XD", "Prototipado", "User Research"],
-      benefits: ["Ambiente creativo", "Proyectos internacionales", "Crecimiento profesional"],
-      professionalAreaId: 5,
-      location: "Santo Domingo, RD",
-      jobType: "full-time",
-      experienceLevel: "senior",
-      salaryRange: "$40,000 - $55,000",
-      contactEmail: "careers@designstudio.com",
-      contactPhone: "809-555-0456",
-      isActive: true,
-      publishedBy: 1,
-      createdAt: new Date(2024, 7, 25),
-      updatedAt: new Date(2024, 7, 25)
-    }
-  ];
-
-  const mockProfiles = [
-    {
-      id: 1,
-      userId: 2,
-      fullName: "María González",
-      email: "maria.gonzalez@ejemplo.com",
-      phone: "809-555-1234",
-      professionalAreaId: 1,
-      experience: "3 años de experiencia en desarrollo frontend con React y Vue.js. He trabajado en proyectos de e-commerce y aplicaciones web corporativas.",
-      skills: ["React", "Vue.js", "JavaScript", "TypeScript", "HTML", "CSS", "Git"],
-      education: "Ingeniería en Sistemas, PUCMM",
-      summary: "Desarrolladora frontend apasionada por crear interfaces de usuario intuitivas y responsivas. Me especializo en React y tengo experiencia trabajando en equipos ágiles.",
-      expectedSalary: "$30,000 - $40,000",
-      availableForWork: true,
-      createdAt: new Date(2024, 7, 10),
-      updatedAt: new Date(2024, 7, 10)
-    },
-    {
-      id: 2,
-      userId: 1,
-      fullName: "Juan Pérez",
-      email: "juan.perez@ejemplo.com",
-      phone: "809-555-5678",
-      professionalAreaId: 2,
-      experience: "5 años en marketing digital, especializado en Google Ads y Facebook Ads. He gestionado presupuestos de hasta $50,000 mensuales.",
-      skills: ["Google Ads", "Facebook Ads", "SEO", "Analytics", "Marketing Automation"],
-      education: "Licenciatura en Marketing, UASD",
-      summary: "Especialista en marketing digital con track record comprobado en generación de leads y optimización de ROI en campañas publicitarias digitales.",
-      expectedSalary: "$35,000 - $45,000",
-      availableForWork: true,
-      createdAt: new Date(2024, 7, 12),
-      updatedAt: new Date(2024, 7, 12)
-    }
-  ];
-
-  const mockApplications = [
-    {
-      id: 1,
-      jobId: 1,
-      userProfileId: 1,
-      coverLetter: "Estimado equipo de reclutamiento, estoy muy interesada en la posición de Desarrollador Frontend React. Mi experiencia de 3 años con React y TypeScript me ha permitido desarrollar aplicaciones web robustas y escalables. He trabajado en proyectos similares y estoy emocionada por la oportunidad de contribuir a TechCorp.",
-      status: "pending",
-      appliedAt: new Date(2024, 7, 28),
-      createdAt: new Date(2024, 7, 28),
-      updatedAt: new Date(2024, 7, 28),
-      job: mockJobs[0],
-      profile: mockProfiles[0]
-    },
-    {
-      id: 2,
-      jobId: 2,
-      userProfileId: 2,
-      coverLetter: "Hola equipo de MarketPro, soy Juan Pérez y me postulo para la posición de Especialista en Marketing Digital. Con 5 años de experiencia gestionando campañas de Google Ads y Facebook Ads, he logrado optimizar ROI en más del 150% en mis proyectos anteriores. Me encantaría aportar mi experiencia a su equipo.",
-      status: "reviewed",
-      reviewedBy: 1,
-      reviewedAt: new Date(2024, 7, 29),
-      notes: "Candidato prometedor con buena experiencia. Programar entrevista.",
-      appliedAt: new Date(2024, 7, 26),
-      createdAt: new Date(2024, 7, 26),
-      updatedAt: new Date(2024, 7, 29),
-      job: mockJobs[1],
-      profile: mockProfiles[1]
-    },
-    {
-      id: 3,
-      jobId: 3,
-      userProfileId: 1,
-      coverLetter: "Aunque mi experiencia principal es en desarrollo frontend, tengo un gran interés en UX/UI y he completado varios cursos en Figma y diseño centrado en el usuario. Me gustaría hacer la transición al área de diseño y creo que mi background técnico sería un valor agregado.",
-      status: "rejected",
-      reviewedBy: 1,
-      reviewedAt: new Date(2024, 7, 30),
-      notes: "Perfil interesante pero buscamos alguien con más experiencia específica en UX/UI.",
-      appliedAt: new Date(2024, 7, 27),
-      createdAt: new Date(2024, 7, 27),
-      updatedAt: new Date(2024, 7, 30),
-      job: mockJobs[2],
-      profile: mockProfiles[0]
-    },
-    {
-      id: 4,
-      jobId: null,
-      userProfileId: 2,
-      coverLetter: "Hola, soy Juan Pérez, especialista en marketing digital con 5 años de experiencia. Estoy abierto a nuevas oportunidades en el área de marketing y publicidad digital. Mi experiencia incluye gestión de campañas, SEO y analytics. Estaría encantado de discutir cómo puedo aportar valor a su organización.",
-      status: "pending",
-      appliedAt: new Date(2024, 7, 30),
-      createdAt: new Date(2024, 7, 30),
-      updatedAt: new Date(2024, 7, 30),
-      job: null,
-      profile: mockProfiles[1]
-    }
-  ];
-
-  // Use mock data
-  const jobStats = mockJobStats;
-  const applications = mockApplications;
-  const jobs = mockJobs;
-  const profiles = mockProfiles;
-  const professionalAreas = mockProfessionalAreas;
 
   // Review form
   const reviewForm = useForm({

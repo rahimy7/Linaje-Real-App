@@ -15,9 +15,9 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
   };
 
   const adminUser = {
-    name: "Juan Pérez",
+    name: "Pastor Keni",
     role: "Administrador",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100"
+    avatar: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTpwm93fwjovHMblv_ofyirT2Cm5zJQHMeT6Q&s"
   };
 
   // Determines if a nav item is active
@@ -27,28 +27,28 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
   };
 
   return (
-    <nav className={`mobile-nav fixed top-0 left-0 bottom-0 w-64 bg-white z-30 shadow-lg p-4 lg:hidden flex flex-col ${isOpen ? 'active' : ''}`}>
-      <div className="flex items-center justify-between mb-8">
+    <nav className={`mobile-nav fixed top-0 left-0 bottom-0 w-64 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-800 z-30 shadow-xl p-4 lg:hidden flex flex-col ${isOpen ? 'active' : ''}`}>
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-white font-bold text-lg">M</span>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-lg">
+            <i className="ri-church-line text-white text-sm"></i>
           </div>
-          <h1 className="text-lg font-semibold text-primary">MiApp Admin</h1>
+          <h1 className="text-base font-bold text-white">Iglesia Adventista</h1>
         </div>
-        <button onClick={onClose} className="text-neutral-700 focus:outline-none">
+        <button onClick={onClose} className="text-slate-400 hover:text-white focus:outline-none">
           <XIcon className="h-6 w-6" />
         </button>
       </div>
 
-      <div className="flex items-center space-x-3 mb-8 p-3 bg-neutral-100 rounded-lg">
+      <div className="flex items-center space-x-3 mb-6 p-3 bg-slate-800/60 rounded-xl border border-slate-700/60">
         <img 
           src={adminUser.avatar} 
           alt="Admin User" 
-          className="w-10 h-10 rounded-full object-cover" 
+          className="w-10 h-10 rounded-full object-cover border-2 border-slate-600/50" 
         />
         <div>
-          <h2 className="font-medium text-neutral-800">{adminUser.name}</h2>
-          <p className="text-sm text-neutral-500">{adminUser.role}</p>
+          <h2 className="font-semibold text-white text-sm">{adminUser.name}</h2>
+          <p className="text-xs text-slate-400">{adminUser.role}</p>
         </div>
       </div>
 
@@ -58,73 +58,73 @@ export default function MobileNav({ isOpen, onClose }: MobileNavProps) {
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); handleNavigation("/dashboard"); }}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${isActive("/dashboard") ? 'bg-primary bg-opacity-10 text-primary font-medium' : 'hover:bg-neutral-100 text-neutral-600'}`}
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${isActive("/dashboard") ? 'bg-slate-700/60 text-white border border-slate-600/60' : 'hover:bg-slate-700/40 text-slate-300 hover:text-white'}`}
             >
-              <i className="ri-dashboard-line text-xl"></i>
-              <span>Dashboard</span>
+              <i className="ri-dashboard-line text-lg"></i>
+              <span className="text-sm">Dashboard</span>
             </a>
           </li>
           <li>
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); handleNavigation("/usuarios"); }}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${isActive("/usuarios") ? 'bg-primary bg-opacity-10 text-primary font-medium' : 'hover:bg-neutral-100 text-neutral-600'}`}
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${isActive("/usuarios") ? 'bg-slate-700/60 text-white border border-slate-600/60' : 'hover:bg-slate-700/40 text-slate-300 hover:text-white'}`}
             >
-              <i className="ri-user-line text-xl"></i>
-              <span>Usuarios</span>
+              <i className="ri-user-line text-lg"></i>
+              <span className="text-sm">Usuarios</span>
             </a>
           </li>
           <li>
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); handleNavigation("/pedidos"); }}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${isActive("/pedidos") ? 'bg-primary bg-opacity-10 text-primary font-medium' : 'hover:bg-neutral-100 text-neutral-600'}`}
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${isActive("/pedidos") ? 'bg-slate-700/60 text-white border border-slate-600/60' : 'hover:bg-slate-700/40 text-slate-300 hover:text-white'}`}
             >
-              <i className="ri-shopping-bag-line text-xl"></i>
-              <span>Pedidos</span>
+              <i className="ri-shopping-bag-line text-lg"></i>
+              <span className="text-sm">Pedidos</span>
             </a>
           </li>
           <li>
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); handleNavigation("/productos"); }}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${isActive("/productos") ? 'bg-primary bg-opacity-10 text-primary font-medium' : 'hover:bg-neutral-100 text-neutral-600'}`}
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${isActive("/productos") ? 'bg-slate-700/60 text-white border border-slate-600/60' : 'hover:bg-slate-700/40 text-slate-300 hover:text-white'}`}
             >
-              <i className="ri-store-2-line text-xl"></i>
-              <span>Productos</span>
+              <i className="ri-store-2-line text-lg"></i>
+              <span className="text-sm">Productos</span>
             </a>
           </li>
           <li>
             <a
               href="#"
               onClick={(e) => { e.preventDefault(); handleNavigation("/foros"); }}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${isActive("/foros") ? 'bg-primary bg-opacity-10 text-primary font-medium' : 'hover:bg-neutral-100 text-neutral-600'}`}
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${isActive("/foros") ? 'bg-slate-700/60 text-white border border-slate-600/60' : 'hover:bg-slate-700/40 text-slate-300 hover:text-white'}`}
             >
-              <i className="ri-discuss-line text-xl"></i>
-              <span>Foros</span>
+              <i className="ri-discuss-line text-lg"></i>
+              <span className="text-sm">Foros</span>
             </a>
           </li>
           <li>
             <a 
               href="#" 
               onClick={(e) => { e.preventDefault(); handleNavigation("/configuracion"); }}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${isActive("/configuracion") ? 'bg-primary bg-opacity-10 text-primary font-medium' : 'hover:bg-neutral-100 text-neutral-600'}`}
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${isActive("/configuracion") ? 'bg-slate-700/60 text-white border border-slate-600/60' : 'hover:bg-slate-700/40 text-slate-300 hover:text-white'}`}
             >
-              <i className="ri-settings-3-line text-xl"></i>
-              <span>Configuración</span>
+              <i className="ri-settings-3-line text-lg"></i>
+              <span className="text-sm">Configuración</span>
             </a>
           </li>
         </ul>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-neutral-200">
+      <div className="mt-4 pt-4 border-t border-slate-700">
         <a 
           href="#" 
           onClick={(e) => e.preventDefault()}
-          className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-neutral-100 text-neutral-600"
+          className="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-700/40 text-slate-300 hover:text-white transition-all"
         >
-          <i className="ri-logout-box-line text-xl"></i>
-          <span>Cerrar sesión</span>
+          <i className="ri-logout-box-line text-lg"></i>
+          <span className="text-sm">Cerrar sesión</span>
         </a>
       </div>
     </nav>

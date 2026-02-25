@@ -6,17 +6,19 @@ import { MessageSquare, Users } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
-import { mockSubforums } from "@/data/mock-forum";
 
 interface SubforumListProps {
   categoryId: number;
 }
 
 export default function SubforumList({ categoryId }: SubforumListProps) {
-  const { data: subforums = mockSubforums[categoryId] || [], isLoading } = useQuery({
-    queryKey: [`/api/categories/${categoryId}/subforums`],
-    queryFn: async () => mockSubforums[categoryId] || [],
-    initialData: mockSubforums[categoryId] || [],
+  const { data: subforums = [], isLoading } = useQuery({
+    queryKey: [`/api/forum/subforums`, { categoryId }],
+    queryFn: async () => {
+      const res = await fetch(`/api/forum/subforums?categoryId=${categoryId}`);
+      if (!res.ok) throw new Error('Error al cargar subforos');
+      return res.json();
+    },
     enabled: !!categoryId,
   });
 

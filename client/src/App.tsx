@@ -9,6 +9,7 @@ import MiembrosPage from "@/pages/MiembrosPage";
 import EventosPage from "@/pages/EventosPage";
 import OracionesPage from "@/pages/OracionesPage";
 import CursosPage from "@/pages/CursosPage";
+import ProgramaDetailPage from "@/pages/Cursos/ProgramaDetailPage";
 import DonacionesPage from "@/pages/DonacionesPage";
 import MeditacionesPage from "@/pages/MeditacionesPage";
 import SobreNosotrosPage from "@/pages/SobreNosotrosPage";
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/eventos" component={EventosPage} />
         <Route path="/oraciones" component={OracionesPage} />
         <Route path="/cursos" component={CursosPage} />
+        <Route path="/cursos/:id/dias" component={ProgramaDetailPage} />
         <Route path="/foros" component={ForosPage} />
         <Route path="/admin/jobs" component={AdminJobsPage} />
         <Route path="/donaciones" component={DonacionesPage} />

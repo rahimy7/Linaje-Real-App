@@ -1,8 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Permitir peticiones desde la app móvil (emulador Android: 10.0.2.2, iOS: localhost, dispositivo físico: IP LAN)
+app.use(cors({
+  origin: true, // Acepta cualquier origen en desarrollo
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

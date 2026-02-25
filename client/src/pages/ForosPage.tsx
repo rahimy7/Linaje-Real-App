@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, Edit, Trash2, Eye, Users, MessageSquare, Calendar, Filter, MoreHorizontal, TrendingUp, Activity, BookOpen, Hash } from 'lucide-react';
 import { Helmet } from "react-helmet";
+import { useQuery } from "@tanstack/react-query";
 
 // Tipos de datos
 interface Category {
@@ -38,111 +39,6 @@ interface Subforum {
   members: number;
 }
 
-// Datos mock mejorados para la administración
-const mockForumStats = {
-  totalCategories: 8,
-  totalSubforums: 24,
-  totalThreads: 1547,
-  totalPosts: 8934,
-  activeUsers: 245,
-  newUsersToday: 12,
-  postsToday: 67,
-  threadsToday: 23
-};
-
-const mockCategories: Category[] = [
-  {
-    id: 1,
-    name: "Salud Mental",
-    description: "Espacio seguro para hablar sobre salud mental",
-    type: "thematic",
-    icon: "🧠",
-    color: "#8B5CF6",
-    subforums: 4,
-    threads: 234,
-    posts: 1456,
-    members: 342,
-    isActive: true,
-    createdAt: "2024-01-15",
-    moderators: ["Ana García", "Dr. Martínez"],
-    schedule: "Lunes 18:00"
-  },
-  {
-    id: 2,
-    name: "Autoestima y Motivación",
-    description: "Comparte técnicas para mejorar autoestima",
-    type: "thematic",
-    icon: "☀️",
-    color: "#F59E0B",
-    subforums: 3,
-    threads: 189,
-    posts: 892,
-    members: 278,
-    isActive: true,
-    createdAt: "2024-02-01",
-    moderators: ["Luis Rodríguez"],
-    schedule: "Miércoles 16:00"
-  },
-  {
-    id: 3,
-    name: "Curso: Mindfulness Básico",
-    description: "Foro del curso de introducción al mindfulness",
-    type: "course",
-    icon: "🧘",
-    color: "#10B981",
-    subforums: 5,
-    threads: 98,
-    posts: 567,
-    members: 156,
-    isActive: true,
-    createdAt: "2024-03-10",
-    moderators: ["María López", "Instructor Zen"],
-    courseCode: "MIND-001"
-  },
-  {
-    id: 4,
-    name: "Curso: Gestión del Estrés",
-    description: "Técnicas avanzadas para manejar el estrés",
-    type: "course",
-    icon: "💆‍♀️",
-    color: "#3B82F6",
-    subforums: 6,
-    threads: 145,
-    posts: 723,
-    members: 89,
-    isActive: true,
-    createdAt: "2024-02-20",
-    moderators: ["Dr. Hernández"],
-    courseCode: "STRESS-002"
-  },
-  {
-    id: 5,
-    name: "Relaciones Familiares",
-    description: "Apoyo en dinámicas familiares",
-    type: "thematic",
-    icon: "👨‍👩‍👧‍👦",
-    color: "#EF4444",
-    subforums: 2,
-    threads: 67,
-    posts: 234,
-    members: 123,
-    isActive: false,
-    createdAt: "2024-01-30",
-    moderators: ["Carmen Ruiz"],
-    schedule: "Sábados 10:00"
-  }
-];
-
-const mockSubforums: Subforum[] = [
-  { id: 1, name: "Depresión", categoryId: 1, threads: 89, posts: 456, members: 234 },
-  { id: 2, name: "Ansiedad", categoryId: 1, threads: 67, posts: 389, members: 198 },
-  { id: 3, name: "Trastornos Alimentarios", categoryId: 1, threads: 45, posts: 267, members: 145 },
-  { id: 4, name: "Adicciones", categoryId: 1, threads: 33, posts: 344, members: 89 },
-  { id: 5, name: "Historias de Superación", categoryId: 2, threads: 78, posts: 456, members: 167 },
-  { id: 6, name: "Técnicas de Motivación", categoryId: 2, threads: 56, posts: 234, members: 123 },
-  { id: 7, name: "Autoconocimiento", categoryId: 2, threads: 55, posts: 202, members: 98 }
-];
-
 export default function AdminForosPage() {
   const [selectedTab, setSelectedTab] = useState<string>('overview');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -156,9 +52,30 @@ export default function AdminForosPage() {
     icon: '🧠'
   });
 
-  const filteredCategories = mockCategories.filter((category: Category) => {
+  // Fetch data from API
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<Category[]>({
+    queryKey: ["/api/forum/categories"],
+  });
+
+  const { data: subforums = [], isLoading: isLoadingSubforums } = useQuery<Subforum[]>({
+    queryKey: ["/api/forum/subforums"],
+  });
+
+  // Calculate stats from real data
+  const forumStats = {
+    totalCategories: categories.length,
+    totalSubforums: subforums.length,
+    totalThreads: categories.reduce((sum, cat) => sum + (cat.threads || 0), 0),
+    totalPosts: categories.reduce((sum, cat) => sum + (cat.posts || 0), 0),
+    activeUsers: categories.reduce((sum, cat) => sum + (cat.members || 0), 0),
+    newUsersToday: 0, // No disponible aún
+    postsToday: 0, // No disponible aún
+    threadsToday: 0 // No disponible aún
+  };
+
+  const filteredCategories = categories.filter((category: Category) => {
     const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         category.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         (category.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || category.type === filterType;
     return matchesSearch && matchesType;
   });
@@ -416,27 +333,27 @@ export default function AdminForosPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard 
                   title="Total Categorías" 
-                  value={mockForumStats.totalCategories} 
+                  value={forumStats.totalCategories} 
                   icon={Hash}
                   color="text-purple-600"
                 />
                 <StatCard 
                   title="Total Subforos" 
-                  value={mockForumStats.totalSubforums} 
+                  value={forumStats.totalSubforums} 
                   icon={MessageSquare}
                   color="text-blue-600"
                 />
                 <StatCard 
                   title="Temas Activos" 
-                  value={mockForumStats.totalThreads} 
-                  change={mockForumStats.threadsToday}
+                  value={forumStats.totalThreads} 
+                  change={forumStats.threadsToday}
                   icon={Users}
                   color="text-green-600"
                 />
                 <StatCard 
                   title="Usuarios Activos" 
-                  value={mockForumStats.activeUsers} 
-                  change={mockForumStats.newUsersToday}
+                  value={forumStats.activeUsers} 
+                  change={forumStats.newUsersToday}
                   icon={Activity}
                   color="text-orange-600"
                 />
@@ -543,8 +460,8 @@ export default function AdminForosPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {mockSubforums.map((subforum) => {
-                      const category = mockCategories.find((c: Category) => c.id === subforum.categoryId);
+                    {subforums.map((subforum) => {
+                      const category = categories.find((c: Category) => c.id === subforum.categoryId);
                       return (
                         <tr key={subforum.id} className="hover:bg-gray-50">
                           <td className="py-4 px-6 font-medium text-gray-900">{subforum.name}</td>

@@ -114,6 +114,7 @@ export const insertProgramaSchema = createInsertSchema(programas).pick({
 
 export type InsertPrograma = z.infer<typeof insertProgramaSchema>;
 export type Programa = typeof programas.$inferSelect;
+export type ProgramaConDias = Programa & { dias?: DiaPrograma[] };
 
 // ── Días de un programa ────────────────────────────────────────────────────────
 export const diasPrograma = pgTable("dias_programa", {
@@ -150,7 +151,12 @@ export const insertDiaProgramaSchema = createInsertSchema(diasPrograma).pick({
   lecturas: true,
 });
 
+export const updateDiaProgramaSchema = insertDiaProgramaSchema.partial().omit({
+  programaId: true,
+});
+
 export type InsertDiaPrograma = z.infer<typeof insertDiaProgramaSchema>;
+export type UpdateDiaPrograma = z.infer<typeof updateDiaProgramaSchema>;
 export type DiaPrograma = typeof diasPrograma.$inferSelect;
 
 // ── Activities schema ─────────────────────────────────────────────────────────
@@ -331,7 +337,7 @@ export const posts = pgTable("posts", {
   threadId: integer("thread_id").notNull().references(() => threads.id),
   authorId: varchar("author_id").notNull().references(() => users.id),
   content: text("content").notNull(),
-  parentId: integer("parent_id").references(() => posts.id), // for nested replies
+  parentId: integer("parent_id"), // self-reference, relation defined below
   isModerated: boolean("is_moderated").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -2,6 +2,10 @@ import "dotenv/config";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@shared/schema";
+import dns from "dns";
+
+// Force IPv4 resolution to avoid ENETUNREACH on Railway
+dns.setDefaultResultOrder('ipv4first');
 
 if (!process.env.DATABASE_URL) {
   throw new Error(

@@ -727,10 +727,25 @@ app.post("/api/programas/:programaId/dias", async (req, res) => {
 
 app.put("/api/dias/:id", async (req, res) => {
   try {
-    const dia = await storage.updateDiaPrograma(parseInt(req.params.id), req.body);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "ID inválido" });
+    }
+    
+    // Validate request body
+    const validation = (await import("@shared/schema")).updateDiaProgramaSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: "Datos inválidos", 
+        details: validation.error.issues 
+      });
+    }
+    
+    const dia = await storage.updateDiaPrograma(id, validation.data);
     res.json(dia);
-  } catch (error) {
-    res.status(500).json({ error: "Error al actualizar día" });
+  } catch (error: any) {
+    console.error("Error actualizando día:", error);
+    res.status(500).json({ error: error.message || "Error al actualizar día" });
   }
 });
 

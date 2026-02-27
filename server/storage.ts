@@ -38,6 +38,7 @@ import {
   type InsertPrograma,
   type DiaPrograma,
   type InsertDiaPrograma,
+  type UpdateDiaPrograma,
   peticionesOracion,
   type PeticionOracion,
   type InsertPeticionOracion,
@@ -178,7 +179,7 @@ export interface IStorage {
   getDiasPrograma(programaId: number): Promise<import("@shared/schema").DiaPrograma[]>;
   getDiaPrograma(id: number): Promise<import("@shared/schema").DiaPrograma | undefined>;
   createDiaPrograma(dia: import("@shared/schema").InsertDiaPrograma): Promise<import("@shared/schema").DiaPrograma>;
-  updateDiaPrograma(id: number, dia: Partial<import("@shared/schema").InsertDiaPrograma>): Promise<import("@shared/schema").DiaPrograma>;
+  updateDiaPrograma(id: number, dia: UpdateDiaPrograma): Promise<import("@shared/schema").DiaPrograma>;
   deleteDiaPrograma(id: number): Promise<void>;
 
   // Peticiones de Oración
@@ -1116,6 +1117,7 @@ async getJobSystemStats(): Promise<JobSystemStats> {
       ...insertPost,
       id,
       parentId: insertPost.parentId ?? null,
+      isModerated: insertPost.isModerated ?? false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -1440,7 +1442,7 @@ async getJobSystemStats(): Promise<JobSystemStats> {
     return nuevo;
   }
 
-  async updateDiaPrograma(id: number, cambios: Partial<import("@shared/schema").InsertDiaPrograma>): Promise<import("@shared/schema").DiaPrograma> {
+  async updateDiaPrograma(id: number, cambios: UpdateDiaPrograma): Promise<import("@shared/schema").DiaPrograma> {
     const existing = this.diasPrograma.get(id);
     if (!existing) throw new Error(`Día ${id} no encontrado`);
     const updated = { ...existing, ...cambios };
@@ -1679,7 +1681,17 @@ export class DatabaseStorage extends MemStorage {
   // ── Programas ─────────────────────────────────────────────────────────────
 
   override async getProgramas(): Promise<Programa[]> {
-    return db.select().from(programas).orderBy(asc(programas.creadoEn));
+    // Usar query relacional para incluir los días de cada programa
+    const programasConDias = await db.query.programas.findMany({
+      orderBy: [asc(programas.creadoEn)],
+      with: {
+        dias: {
+          orderBy: [asc(diasPrograma.numero)],
+        },
+      },
+    });
+    
+    return programasConDias as any;
   }
 
   override async getPrograma(id: number): Promise<Programa | undefined> {
@@ -1741,7 +1753,7 @@ export class DatabaseStorage extends MemStorage {
     return rows[0];
   }
 
-  override async updateDiaPrograma(id: number, data: Partial<InsertDiaPrograma>): Promise<DiaPrograma> {
+  override async updateDiaPrograma(id: number, data: UpdateDiaPrograma): Promise<DiaPrograma> {
     const rows = await db
       .update(diasPrograma)
       .set(data)

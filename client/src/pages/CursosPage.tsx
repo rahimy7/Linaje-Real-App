@@ -37,8 +37,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { SearchIcon, PlusIcon, EditIcon, TrashIcon, EyeIcon } from "@/lib/icons";
+import { SearchIcon, PlusIcon, EditIcon, TrashIcon, EyeIcon, DownloadIcon } from "@/lib/icons";
 import { apiRequest } from "@/lib/queryClient";
+import { generateProgramaPdf } from "@/lib/generateProgramaPdf";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 interface Programa {
@@ -129,12 +130,14 @@ function ProgramaCard({
   onDelete,
   onTogglePublicado,
   onVerDias,
+  onDownloadPdf,
 }: {
   programa: Programa;
   onEdit: () => void;
   onDelete: () => void;
   onTogglePublicado: () => void;
   onVerDias: () => void;
+  onDownloadPdf: () => void;
 }) {
   const cat = CATEGORIAS.find((c) => c.id === programa.categoria);
   const accentColor = programa.color || "#3478F6";
@@ -227,6 +230,9 @@ function ProgramaCard({
           Ver Días ({programa.totalDias ?? 0})
         </Button>
         <div className="flex gap-1">
+          <Button size="icon" variant="outline" className="h-8 w-8" onClick={onDownloadPdf} title="Descargar PDF">
+            <DownloadIcon className="h-3.5 w-3.5" />
+          </Button>
           <Button size="icon" variant="outline" className="h-8 w-8" onClick={onEdit}>
             <EditIcon className="h-3.5 w-3.5" />
           </Button>
@@ -347,6 +353,23 @@ export default function CursosPage() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
+  const handleDownloadPdf = async (programa: Programa) => {
+    try {
+      toast({ title: "Generando PDF...", description: "Descargando datos del programa." });
+      const res = await fetch(`/api/programas/${programa.id}/dias`);
+      if (!res.ok) throw new Error("No se pudieron obtener los días");
+      const dias = await res.json();
+      if (!dias.length) {
+        toast({ title: "Sin contenido", description: "Este programa no tiene días creados aún.", variant: "destructive" });
+        return;
+      }
+      await generateProgramaPdf(programa, dias);
+      toast({ title: "PDF descargado", description: `${programa.nombre}.pdf generado correctamente.` });
+    } catch {
+      toast({ title: "Error", description: "No se pudo generar el PDF.", variant: "destructive" });
+    }
+  };
+
   return (
     <>
       <Helmet>
@@ -450,6 +473,7 @@ export default function CursosPage() {
                 onDelete={() => setDeletingId(programa.id)}
                 onTogglePublicado={() => toggleMutation.mutate(programa.id)}
                 onVerDias={() => setLocation(`/cursos/${programa.id}/dias`)}
+                onDownloadPdf={() => handleDownloadPdf(programa)}
               />
             ))}
           </div>

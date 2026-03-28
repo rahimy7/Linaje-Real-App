@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,137 +8,41 @@ import { SearchIcon, FilterIcon, PlusIcon } from "@/lib/icons";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Helmet } from "react-helmet";
+import { apiRequest } from "@/lib/queryClient";
 
-// Tipo para los miembros de la iglesia
+// Tipo para los miembros de la iglesia (coherente con tabla miembros en BD)
 interface Miembro {
   id: number;
   nombre: string;
-  email: string;
-  telefono: string;
-  direccion: string;
-  fechaRegistro: string;
-  fechaNacimiento: string;
+  iglesia: string;
   estado: "activo" | "inactivo" | "nuevo";
-  ministerios: string[];
-  imageUrl: string;
-  notas: string;
-  bautizado: boolean;
-  miembroDesde: string;
+  fechaRegistro: string;
 }
 
 export default function MiembrosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("todos");
+  const queryClient = useQueryClient();
 
-  // Simulamos datos de miembros
-  const miembrosSimulados: Miembro[] = [
-    {
-      id: 1,
-      nombre: "María González",
-      email: "maria@example.com",
-      telefono: "(123) 456-7890",
-      direccion: "Calle Principal 123",
-      fechaRegistro: "15 Enero, 2022",
-      fechaNacimiento: "12 Marzo, 1985",
-      estado: "activo",
-      ministerios: ["Adoración", "Escuela Dominical"],
-      imageUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200",
-      notas: "Excelente voz para el coro",
-      bautizado: true,
-      miembroDesde: "2018"
-    },
-    {
-      id: 2,
-      nombre: "Carlos Rodríguez",
-      email: "carlos@example.com",
-      telefono: "(123) 456-7891",
-      direccion: "Avenida Central 456",
-      fechaRegistro: "20 Febrero, 2022",
-      fechaNacimiento: "24 Julio, 1990",
-      estado: "activo",
-      ministerios: ["Jóvenes", "Medios"],
-      imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200",
-      notas: "Responsable del equipo de sonido",
-      bautizado: true,
-      miembroDesde: "2016"
-    },
-    {
-      id: 3,
-      nombre: "Ana Martínez",
-      email: "ana@example.com",
-      telefono: "(123) 456-7892",
-      direccion: "Calle Secundaria 789",
-      fechaRegistro: "10 Marzo, 2022",
-      fechaNacimiento: "15 Octubre, 1988",
-      estado: "activo",
-      ministerios: ["Mujeres", "Oración"],
-      imageUrl: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200",
-      notas: "Coordina el grupo de oración de los martes",
-      bautizado: true,
-      miembroDesde: "2015"
-    },
-    {
-      id: 4,
-      nombre: "Roberto Sánchez",
-      email: "roberto@example.com",
-      telefono: "(123) 456-7893",
-      direccion: "Pasaje Las Flores 234",
-      fechaRegistro: "5 Abril, 2023",
-      fechaNacimiento: "30 Enero, 1992",
-      estado: "nuevo",
-      ministerios: [],
-      imageUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200",
-      notas: "Interesado en el ministerio de jóvenes",
-      bautizado: false,
-      miembroDesde: "2023"
-    },
-    {
-      id: 5,
-      nombre: "Laura Pérez",
-      email: "laura@example.com",
-      telefono: "(123) 456-7894",
-      direccion: "Avenida Los Pinos 567",
-      fechaRegistro: "18 Mayo, 2021",
-      fechaNacimiento: "8 Abril, 1982",
-      estado: "activo",
-      ministerios: ["Niños", "Evangelismo"],
-      imageUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200",
-      notas: "Maestra de escuela dominical para niños de 6-8 años",
-      bautizado: true,
-      miembroDesde: "2012"
-    },
-    {
-      id: 6,
-      nombre: "Miguel Hernández",
-      email: "miguel@example.com",
-      telefono: "(123) 456-7895",
-      direccion: "Calle del Sol 890",
-      fechaRegistro: "22 Junio, 2020",
-      fechaNacimiento: "17 Septiembre, 1975",
-      estado: "inactivo",
-      ministerios: ["Administración"],
-      imageUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200",
-      notas: "Se mudó temporalmente por trabajo",
-      bautizado: true,
-      miembroDesde: "2010"
-    }
-  ];
-
-  // Simulamos una carga de datos
+  // Datos reales de la base de datos
   const { data: miembros, isLoading } = useQuery<Miembro[]>({
     queryKey: ['/api/miembros'],
-    queryFn: () => new Promise(resolve => {
-      setTimeout(() => resolve(miembrosSimulados), 1000);
-    })
+  });
+
+  // Mutación para eliminar miembro
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/miembros/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/miembros'] });
+    },
   });
 
   const filteredMiembros = miembros?.filter(miembro => {
     const matchesSearch = 
       miembro.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      miembro.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      miembro.telefono.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      miembro.direccion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      miembro.ministerios.some(m => m.toLowerCase().includes(searchTerm.toLowerCase()));
+      miembro.iglesia.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (activeTab === "todos") return matchesSearch;
     if (activeTab === "activos") return matchesSearch && miembro.estado === "activo";
@@ -171,13 +75,7 @@ export default function MiembrosPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-neutral-800">Miembros</h1>
-            <p className="text-neutral-500">Gestión de miembros de la iglesia</p>
-          </div>
-          <div className="mt-4 md:mt-0">
-            <Button className="bg-primary text-white">
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Nuevo Miembro
-            </Button>
+            <p className="text-neutral-500">Miembros identificados desde la app móvil</p>
           </div>
         </div>
 
@@ -219,9 +117,8 @@ export default function MiembrosPage() {
                   <thead className="bg-neutral-50 border-b border-neutral-200">
                     <tr>
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-neutral-500">Miembro</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-neutral-500">Contacto</th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-neutral-500">Iglesia</th>
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-neutral-500">Estado</th>
-                      <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-neutral-500">Ministerios</th>
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-neutral-500">Registro</th>
                       <th className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-neutral-500">Acciones</th>
                     </tr>
@@ -234,31 +131,20 @@ export default function MiembrosPage() {
                             <Skeleton className="h-10 w-10 rounded-full" />
                             <div>
                               <Skeleton className="h-4 w-32" />
-                              <Skeleton className="h-3 w-24 mt-1" />
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-3 w-24 mt-1" />
-                        </td>
-                        <td className="px-4 py-3">
-                          <Skeleton className="h-6 w-16 rounded-full" />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <Skeleton className="h-6 w-16 rounded-full" />
-                            <Skeleton className="h-6 w-16 rounded-full" />
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <Skeleton className="h-4 w-24" />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <Skeleton className="h-8 w-16 rounded" />
-                            <Skeleton className="h-8 w-8 rounded" />
-                          </div>
+                          <Skeleton className="h-6 w-16 rounded-full" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Skeleton className="h-4 w-24" />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Skeleton className="h-8 w-16 rounded" />
                         </td>
                       </tr>
                     ))}
@@ -276,9 +162,8 @@ export default function MiembrosPage() {
         <thead className="bg-neutral-50 border-b border-neutral-200">
           <tr>
             <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-neutral-500">Miembro</th>
-            <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-neutral-500">Contacto</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-neutral-500">Iglesia</th>
             <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-neutral-500">Estado</th>
-            <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-neutral-500">Ministerios</th>
             <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-neutral-500">Registro</th>
             <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-neutral-500">Acciones</th>
           </tr>
@@ -291,22 +176,18 @@ export default function MiembrosPage() {
             >
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full overflow-hidden">
-                    <img
-                      src={miembro.imageUrl}
-                      alt={miembro.nombre}
-                      className="h-full w-full object-cover"
-                    />
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-primary font-semibold text-sm">
+                      {miembro.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
                   </div>
                   <div>
                     <div className="font-medium text-neutral-800">{miembro.nombre}</div>
-                    <div className="text-xs text-neutral-500">Miembro desde {miembro.miembroDesde}</div>
                   </div>
                 </div>
               </td>
               <td className="px-4 py-3">
-                <div className="text-neutral-800">{miembro.email}</div>
-                <div className="text-xs text-neutral-500">{miembro.telefono}</div>
+                <div className="text-neutral-800">{miembro.iglesia}</div>
               </td>
               <td className="px-4 py-3">
                 <Badge
@@ -316,31 +197,18 @@ export default function MiembrosPage() {
                   {miembro.estado.charAt(0).toUpperCase() + miembro.estado.slice(1)}
                 </Badge>
               </td>
-              <td className="px-4 py-3">
-                <div className="flex flex-wrap gap-1">
-                  {miembro.ministerios.length > 0 ? (
-                    miembro.ministerios.map((ministerio, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="bg-neutral-100 text-neutral-800 border-0"
-                      >
-                        {ministerio}
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-xs text-neutral-500">Ninguno</span>
-                  )}
-                </div>
+              <td className="px-4 py-3 text-neutral-600">
+                {miembro.fechaRegistro ? new Date(miembro.fechaRegistro).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
               </td>
-              <td className="px-4 py-3 text-neutral-600">{miembro.fechaRegistro}</td>
               <td className="px-4 py-3">
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Ver Perfil
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <i className="ri-more-2-fill"></i>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => deleteMutation.mutate(miembro.id)}
+                  >
+                    Eliminar
                   </Button>
                 </div>
               </td>
@@ -354,14 +222,6 @@ export default function MiembrosPage() {
     <div className="text-sm text-neutral-500">
       Mostrando <span className="font-medium">{filteredMiembros.length}</span> de{" "}
       <span className="font-medium">{miembros?.length}</span> miembros
-    </div>
-    <div className="flex gap-2">
-      <Button variant="outline" size="sm" disabled>
-        Anterior
-      </Button>
-      <Button variant="outline" size="sm" disabled>
-        Siguiente
-      </Button>
     </div>
   </CardFooter>
 </Card>
@@ -388,7 +248,7 @@ export default function MiembrosPage() {
                   <div className="w-full bg-neutral-200 rounded-full h-2">
                     <div 
                       className="bg-slate-500 h-2 rounded-full"  
-                      style={{ width: `${miembros ? (miembros.filter(m => m.estado === "activo").length / miembros.length) * 100 : 0}%` }}
+                      style={{ width: `${miembros && miembros.length > 0 ? (miembros.filter(m => m.estado === "activo").length / miembros.length) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -401,34 +261,15 @@ export default function MiembrosPage() {
                   <div className="w-full bg-neutral-200 rounded-full h-2">
                     <div 
                       className="bg-slate-500 h-2 rounded-full" 
-                      style={{ width: `${miembros ? (miembros.filter(m => m.estado === "inactivo").length / miembros.length) * 100 : 0}%` }}
+                      style={{ width: `${miembros && miembros.length > 0 ? (miembros.filter(m => m.estado === "inactivo").length / miembros.length) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
                 
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-neutral-600">Miembros Nuevos</span>
-                    <span className="font-medium">{miembros?.filter(m => m.estado === "nuevo").length || 0}</span>
-                  </div>
-                  <div className="w-full bg-neutral-200 rounded-full h-2">
-                    <div 
-                      className="bg-slate-500 h-2 rounded-full"  
-                      style={{ width: `${miembros ? (miembros.filter(m => m.estado === "nuevo").length / miembros.length) * 100 : 0}%` }}
-                    ></div>
-                  </div>
-                </div>
-                
-                <div className="pt-2">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-neutral-600">Bautizados</span>
-                    <span className="font-medium">{miembros?.filter(m => m.bautizado).length || 0}</span>
-                  </div>
-                  <div className="w-full bg-neutral-200 rounded-full h-2">
-                    <div 
-                      className="bg-slate-500 h-2 rounded-full"  
-                      style={{ width: `${miembros ? (miembros.filter(m => m.bautizado).length / miembros.length) * 100 : 0}%` }}
-                    ></div>
+                    <span className="text-neutral-600">Total Miembros</span>
+                    <span className="font-medium">{miembros?.length || 0}</span>
                   </div>
                 </div>
               </div>
@@ -437,25 +278,23 @@ export default function MiembrosPage() {
           
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Ministerios</CardTitle>
+              <CardTitle className="text-lg">Iglesias</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {miembros && (
+                {miembros && miembros.length > 0 && (
                   (() => {
-                    const ministeriosCount: Record<string, number> = {};
+                    const iglesiasCount: Record<string, number> = {};
                     miembros.forEach(miembro => {
-                      miembro.ministerios.forEach(ministerio => {
-                        ministeriosCount[ministerio] = (ministeriosCount[ministerio] || 0) + 1;
-                      });
+                      iglesiasCount[miembro.iglesia] = (iglesiasCount[miembro.iglesia] || 0) + 1;
                     });
                     
-                    return Object.entries(ministeriosCount)
+                    return Object.entries(iglesiasCount)
                       .sort(([,countA], [,countB]) => countB - countA)
-                      .map(([ministerio, count], index) => (
+                      .map(([iglesia, count], index) => (
                         <div key={index}>
                           <div className="flex justify-between text-sm mb-1">
-                            <span className="text-neutral-600">{ministerio}</span>
+                            <span className="text-neutral-600">{iglesia}</span>
                             <span className="font-medium">{count}</span>
                           </div>
                           <div className="w-full bg-neutral-200 rounded-full h-2">
@@ -467,6 +306,9 @@ export default function MiembrosPage() {
                         </div>
                       ));
                   })()
+                )}
+                {(!miembros || miembros.length === 0) && (
+                  <p className="text-sm text-neutral-500">Sin datos aún</p>
                 )}
               </div>
             </CardContent>
@@ -490,20 +332,19 @@ export default function MiembrosPage() {
                   ))
                 ) : (
                   miembros && miembros
-                    .sort((a, b) => new Date(b.fechaRegistro).getTime() - new Date(a.fechaRegistro).getTime())
                     .slice(0, 5)
                     .map((miembro) => (
                       <div key={miembro.id} className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full overflow-hidden">
-                          <img 
-                            src={miembro.imageUrl} 
-                            alt={miembro.nombre}
-                            className="h-full w-full object-cover" 
-                          />
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-primary font-semibold text-sm">
+                            {miembro.nombre.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                          </span>
                         </div>
                         <div>
                           <div className="font-medium text-neutral-800">{miembro.nombre}</div>
-                          <div className="text-xs text-neutral-500">Registrado: {miembro.fechaRegistro}</div>
+                          <div className="text-xs text-neutral-500">
+                            {miembro.fechaRegistro ? new Date(miembro.fechaRegistro).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                          </div>
                         </div>
                       </div>
                     ))

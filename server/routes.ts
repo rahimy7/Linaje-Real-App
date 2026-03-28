@@ -816,6 +816,134 @@ app.post("/api/oraciones/:id/orar", async (req, res) => {
   }
 });
 
+// ── Miembros de la Iglesia ─────────────────────────────────────────────────────
+
+// Identificar miembro (busca existente o crea nuevo) — usado por app móvil
+app.post("/api/miembros/identificar", async (req, res) => {
+  try {
+    const { nombre, iglesia } = req.body;
+    if (!nombre || typeof nombre !== 'string' || !nombre.trim()) {
+      return res.status(400).json({ error: "El nombre es requerido" });
+    }
+    const nombreLimpio = nombre.trim();
+    const iglesiaLimpia = (iglesia && typeof iglesia === 'string' ? iglesia.trim() : "") || "Linaje Real";
+
+    // Buscar miembro existente (case-insensitive)
+    let miembro = await storage.findMiembroByNombreIglesia(nombreLimpio, iglesiaLimpia);
+    if (!miembro) {
+      miembro = await storage.createMiembro({ nombre: nombreLimpio, iglesia: iglesiaLimpia });
+    }
+    res.json(miembro);
+  } catch (error) {
+    res.status(500).json({ error: "Error al identificar miembro" });
+  }
+});
+
+app.get("/api/miembros", async (req, res) => {
+  try {
+    const miembros = await storage.getMiembros();
+    res.json(miembros);
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener miembros" });
+  }
+});
+
+app.get("/api/miembros/:id", async (req, res) => {
+  try {
+    const miembro = await storage.getMiembro(parseInt(req.params.id));
+    if (!miembro) return res.status(404).json({ error: "Miembro no encontrado" });
+    res.json(miembro);
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener miembro" });
+  }
+});
+
+app.delete("/api/miembros/:id", async (req, res) => {
+  try {
+    await storage.deleteMiembro(parseInt(req.params.id));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Error al eliminar miembro" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// EVENTOS DE LA IGLESIA
+// ════════════════════════════════════════════════════════════════════════════════
+
+// GET /api/eventos - Obtener todos los eventos (solo publicados por defecto, ?all=true para admin)
+app.get("/api/eventos", async (req, res) => {
+  try {
+    const allEventos = await storage.getEventos();
+    const includeAll = req.query.all === 'true';
+    const result = includeAll ? allEventos : allEventos.filter(e => e.publicado);
+    res.json(result);
+  } catch (error) {
+    console.error('[API /eventos] Error:', error);
+    res.status(500).json({ error: "Error al obtener eventos" });
+  }
+});
+
+// GET /api/eventos/:id - Obtener un evento por ID
+app.get("/api/eventos/:id", async (req, res) => {
+  try {
+    const evento = await storage.getEvento(parseInt(req.params.id));
+    if (!evento) return res.status(404).json({ error: "Evento no encontrado" });
+    res.json(evento);
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener evento" });
+  }
+});
+
+// POST /api/eventos - Crear nuevo evento
+app.post("/api/eventos", async (req, res) => {
+  try {
+    const data = { ...req.body };
+    if (typeof data.fecha === 'string') {
+      data.fecha = new Date(data.fecha);
+    }
+    const evento = await storage.createEvento(data);
+    res.status(201).json(evento);
+  } catch (error) {
+    console.error('[API POST /eventos] Error:', error);
+    res.status(500).json({ error: "Error al crear evento" });
+  }
+});
+
+// PUT /api/eventos/:id - Actualizar evento
+app.put("/api/eventos/:id", async (req, res) => {
+  try {
+    const data = { ...req.body };
+    if (typeof data.fecha === 'string') {
+      data.fecha = new Date(data.fecha);
+    }
+    const evento = await storage.updateEvento(parseInt(req.params.id), data);
+    res.json(evento);
+  } catch (error) {
+    res.status(500).json({ error: "Error al actualizar evento" });
+  }
+});
+
+// DELETE /api/eventos/:id - Eliminar evento
+app.delete("/api/eventos/:id", async (req, res) => {
+  try {
+    await storage.deleteEvento(parseInt(req.params.id));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Error al eliminar evento" });
+  }
+});
+
+// PATCH /api/eventos/:id/toggle-publicado - Cambiar estado de publicación
+app.patch("/api/eventos/:id/toggle-publicado", async (req, res) => {
+  try {
+    const evento = await storage.toggleEventoPublicado(parseInt(req.params.id));
+    res.json(evento);
+  } catch (error) {
+    res.status(500).json({ error: "Error al cambiar estado del evento" });
+  }
+});
+
   const httpServer = createServer(app);
 
   return httpServer;

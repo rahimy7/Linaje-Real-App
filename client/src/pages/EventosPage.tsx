@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,100 +7,103 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchIcon, FilterIcon, PlusIcon, CalendarIcon } from "@/lib/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Helmet } from "react-helmet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
-// Tipo para los eventos
+// Tipo para los eventos (coincide con la tabla de la BD)
 interface Evento {
   id: number;
   titulo: string;
-  descripcion: string;
+  descripcion: string | null;
   fecha: string;
   hora: string;
-  lugar: string;
+  lugar: string | null;
   tipo: string;
-  imageUrl: string;
+  imageUrl: string | null;
+  publicado: boolean | null;
+  creadoEn: string | null;
+  actualizadoEn: string | null;
 }
+
+const DEFAULT_FORM = {
+  titulo: "",
+  descripcion: "",
+  fecha: "",
+  hora: "",
+  lugar: "",
+  tipo: "culto",
+  imageUrl: "",
+  publicado: true,
+};
 
 export default function EventosPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("todos");
+  const [showModal, setShowModal] = useState(false);
+  const [editando, setEditando] = useState<Evento | null>(null);
+  const [form, setForm] = useState(DEFAULT_FORM);
 
-  // Simulamos datos de eventos para la iglesia
-  const eventosSimulados: Evento[] = [
-    {
-      id: 1,
-      titulo: "Escuela Financiera",
-      descripcion: "Servicio principal de adoración y predicación",
-      fecha: "21 Mayo, 2023",
-      hora: "10:00 AM",
-      lugar: "Auditorio Principal",
-      tipo: "culto",
-      imageUrl: "https://crisfe.org/images/w_1024,f_jpeg/large/educacion-financiera-fundamental-para-la-vida-diaria.jpeg"
-    },
-    {
-      id: 2,
-      titulo: "Estudio Bíblico",
-      descripcion: "Estudio profundo de las Escrituras",
-      fecha: "23 Mayo, 2023",
-      hora: "7:00 PM",
-      lugar: "Salón 103",
-      tipo: "estudio",
-      imageUrl: "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200"
-    },
-    {
-      id: 3,
-      titulo: "Retiro Espiritual",
-      descripcion: "Fin de semana de renovación espiritual",
-      fecha: "26-28 Mayo, 2023",
-      hora: "Todo el día",
-      lugar: "Campamento El Redentor",
-      tipo: "retiro",
-      imageUrl: "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200"
-    },
-    {
-      id: 4,
-      titulo: "Grupo de Jóvenes",
-      descripcion: "Reunión semanal para jóvenes",
-      fecha: "26 Mayo, 2023",
-      hora: "6:30 PM",
-      lugar: "Área de Jóvenes",
-      tipo: "jovenes",
-      imageUrl: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200"
-    },
-    {
-      id: 5,
-      titulo: "Concierto de Alabanza",
-      descripcion: "Noche de adoración con invitados especiales",
-      fecha: "2 Junio, 2023",
-      hora: "7:00 PM",
-      lugar: "Auditorio Principal",
-      tipo: "especial",
-      imageUrl: "https://images.unsplash.com/photo-1574169208507-84376144848b?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200"
-    },
-    {
-      id: 6,
-      titulo: "Capacitación de Liderazgo",
-      descripcion: "Entrenamiento para líderes de ministerios",
-      fecha: "8 Junio, 2023",
-      hora: "9:00 AM",
-      lugar: "Salón de Conferencias",
-      tipo: "capacitacion",
-      imageUrl: "https://images.unsplash.com/photo-1517486808906-6ca8b3f8e1c1?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=200&h=200"
-    }
-  ];
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  // Simulamos una carga de datos
+  // Cargar eventos reales desde el API (all=true para el admin)
   const { data: eventos, isLoading } = useQuery<Evento[]>({
     queryKey: ['/api/eventos'],
-    queryFn: () => new Promise(resolve => {
-      setTimeout(() => resolve(eventosSimulados), 1000);
-    })
+    queryFn: async () => {
+      const res = await fetch('/api/eventos?all=true');
+      if (!res.ok) throw new Error('Error al cargar eventos');
+      return res.json();
+    },
+  });
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (data: typeof DEFAULT_FORM) => apiRequest("POST", "/api/eventos", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/eventos"] });
+      setShowModal(false);
+      setForm(DEFAULT_FORM);
+      toast({ title: "Evento creado", description: "El evento fue creado exitosamente." });
+    },
+    onError: () => toast({ title: "Error", description: "No se pudo crear el evento.", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: typeof DEFAULT_FORM }) =>
+      apiRequest("PUT", `/api/eventos/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/eventos"] });
+      setShowModal(false);
+      setEditando(null);
+      setForm(DEFAULT_FORM);
+      toast({ title: "Evento actualizado" });
+    },
+    onError: () => toast({ title: "Error", description: "No se pudo actualizar el evento.", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/eventos/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/eventos"] });
+      toast({ title: "Evento eliminado" });
+    },
+    onError: () => toast({ title: "Error", description: "No se pudo eliminar el evento.", variant: "destructive" }),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/eventos/${id}/toggle-publicado`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/eventos"] }),
   });
 
   const filteredEventos = eventos?.filter(evento => {
     const matchesSearch = 
       evento.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      evento.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      evento.lugar.toLowerCase().includes(searchTerm.toLowerCase());
+      (evento.descripcion || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (evento.lugar || "").toLowerCase().includes(searchTerm.toLowerCase());
     
     if (activeTab === "todos") return matchesSearch;
     if (activeTab === "cultos") return matchesSearch && evento.tipo === "culto";
@@ -110,6 +113,47 @@ export default function EventosPage() {
     
     return matchesSearch;
   });
+
+  const openCreate = () => {
+    setEditando(null);
+    setForm(DEFAULT_FORM);
+    setShowModal(true);
+  };
+
+  const openEdit = (evento: Evento) => {
+    setEditando(evento);
+    setForm({
+      titulo: evento.titulo,
+      descripcion: evento.descripcion || "",
+      fecha: evento.fecha ? new Date(evento.fecha).toISOString().slice(0, 16) : "",
+      hora: evento.hora,
+      lugar: evento.lugar || "",
+      tipo: evento.tipo,
+      imageUrl: evento.imageUrl || "",
+      publicado: evento.publicado ?? true,
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = () => {
+    if (!form.titulo || !form.fecha || !form.hora) {
+      toast({ title: "Campos requeridos", description: "Título, fecha y hora son obligatorios.", variant: "destructive" });
+      return;
+    }
+    if (editando) {
+      updateMutation.mutate({ id: editando.id, data: form });
+    } else {
+      createMutation.mutate(form);
+    }
+  };
+
+  const formatFecha = (fechaStr: string) => {
+    try {
+      return new Date(fechaStr).toLocaleDateString("es-ES", {
+        day: "numeric", month: "long", year: "numeric"
+      });
+    } catch { return fechaStr; }
+  };
 
   return (
     <>
@@ -124,7 +168,7 @@ export default function EventosPage() {
             <p className="text-neutral-500">Gestión de eventos y actividades de la iglesia</p>
           </div>
           <div className="mt-4 md:mt-0">
-            <Button className="bg-primary text-white">
+            <Button className="bg-primary text-white" onClick={openCreate}>
               <PlusIcon className="h-4 w-4 mr-2" />
               Añadir Evento
             </Button>
@@ -163,7 +207,6 @@ export default function EventosPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoading ? (
-            // Skeleton loaders para cuando está cargando
             [...Array(6)].map((_, i) => (
               <Card key={i}>
                 <CardContent className="p-4">
@@ -182,17 +225,28 @@ export default function EventosPage() {
           ) : (
             filteredEventos && filteredEventos.length > 0 ? (
               filteredEventos.map((evento) => (
-                <Card key={evento.id} className="overflow-hidden">
+                <Card key={evento.id} className={`overflow-hidden ${!evento.publicado ? 'opacity-60' : ''}`}>
                   <div className="relative">
-                    <img 
-                      src={evento.imageUrl}
-                      alt={evento.titulo}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="absolute top-2 left-2">
+                    {evento.imageUrl ? (
+                      <img 
+                        src={evento.imageUrl}
+                        alt={evento.titulo}
+                        className="w-full h-48 object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <CalendarIcon className="h-12 w-12 text-primary/40" />
+                      </div>
+                    )}
+                    <div className="absolute top-2 left-2 flex gap-1">
                       <span className="bg-primary/90 text-white px-2 py-1 rounded text-xs font-medium">
                         {evento.tipo.charAt(0).toUpperCase() + evento.tipo.slice(1)}
                       </span>
+                      {!evento.publicado && (
+                        <span className="bg-yellow-500/90 text-white px-2 py-1 rounded text-xs font-medium">
+                          Borrador
+                        </span>
+                      )}
                     </div>
                   </div>
                   <CardContent className="p-4">
@@ -201,17 +255,35 @@ export default function EventosPage() {
                     
                     <div className="flex items-center text-sm text-neutral-500 mb-2">
                       <CalendarIcon className="h-4 w-4 mr-2 text-neutral-400" />
-                      <span>{evento.fecha} • {evento.hora}</span>
+                      <span>{formatFecha(evento.fecha)} • {evento.hora}</span>
                     </div>
                     
-                    <div className="flex items-center text-sm text-neutral-500">
-                      <i className="ri-map-pin-line mr-2 text-neutral-400"></i>
-                      <span>{evento.lugar}</span>
-                    </div>
+                    {evento.lugar && (
+                      <div className="flex items-center text-sm text-neutral-500">
+                        <i className="ri-map-pin-line mr-2 text-neutral-400"></i>
+                        <span>{evento.lugar}</span>
+                      </div>
+                    )}
                     
-                    <div className="mt-4 flex justify-end">
-                      <Button variant="outline" size="sm" className="text-xs">
+                    <div className="mt-4 flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => toggleMutation.mutate(evento.id)}
+                      >
+                        {evento.publicado ? "Despublicar" : "Publicar"}
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-xs" onClick={() => openEdit(evento)}>
                         Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => deleteMutation.mutate(evento.id)}
+                      >
+                        Eliminar
                       </Button>
                     </div>
                   </CardContent>
@@ -225,6 +297,63 @@ export default function EventosPage() {
           )}
         </div>
       </div>
+
+      {/* Modal crear/editar evento */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editando ? "Editar Evento" : "Crear Evento"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Título *</Label>
+              <Input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
+            </div>
+            <div>
+              <Label>Descripción</Label>
+              <Textarea value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Fecha y Hora *</Label>
+                <Input type="datetime-local" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
+              </div>
+              <div>
+                <Label>Hora (texto) *</Label>
+                <Input placeholder="10:00 AM" value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Lugar</Label>
+              <Input value={form.lugar} onChange={(e) => setForm({ ...form, lugar: e.target.value })} />
+            </div>
+            <div>
+              <Label>Tipo</Label>
+              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="culto">Culto</SelectItem>
+                  <SelectItem value="estudio">Estudio</SelectItem>
+                  <SelectItem value="retiro">Retiro</SelectItem>
+                  <SelectItem value="jovenes">Jóvenes</SelectItem>
+                  <SelectItem value="especial">Especial</SelectItem>
+                  <SelectItem value="capacitacion">Capacitación</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>URL de Imagen</Label>
+              <Input placeholder="https://..." value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowModal(false)}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+              {editando ? "Guardar Cambios" : "Crear Evento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

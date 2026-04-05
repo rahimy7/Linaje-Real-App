@@ -42,9 +42,15 @@ import {
   peticionesOracion,
   type PeticionOracion,
   type InsertPeticionOracion,
+  miembros,
+  type Miembro,
+  type InsertMiembro,
+  eventos,
+  type Evento,
+  type InsertEvento,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, sql, and } from "drizzle-orm";
 
 // ============= INTERFACES AND TYPES =============
 
@@ -189,6 +195,21 @@ export interface IStorage {
   updatePeticionOracion(id: number, peticion: Partial<InsertPeticionOracion>): Promise<PeticionOracion>;
   deletePeticionOracion(id: number): Promise<void>;
   incrementarContadorOraciones(id: number): Promise<PeticionOracion>;
+
+  // Miembros de la Iglesia
+  getMiembros(): Promise<Miembro[]>;
+  getMiembro(id: number): Promise<Miembro | undefined>;
+  createMiembro(data: InsertMiembro): Promise<Miembro>;
+  findMiembroByNombreIglesia(nombre: string, iglesia: string): Promise<Miembro | undefined>;
+  deleteMiembro(id: number): Promise<void>;
+
+  // Eventos de la Iglesia
+  getEventos(): Promise<Evento[]>;
+  getEvento(id: number): Promise<Evento | undefined>;
+  createEvento(data: InsertEvento): Promise<Evento>;
+  updateEvento(id: number, data: Partial<InsertEvento>): Promise<Evento>;
+  deleteEvento(id: number): Promise<void>;
+  toggleEventoPublicado(id: number): Promise<Evento>;
 }
 
 // ============= MEMORY STORAGE IMPLEMENTATION =============
@@ -224,6 +245,9 @@ export class MemStorage implements IStorage {
   // Peticiones de Oración
   private peticionesOracionMap: Map<number, PeticionOracion>;
 
+  // Eventos de la Iglesia
+  private eventosMap: Map<number, Evento>;
+
   currentId: number;
 
   constructor() {
@@ -248,6 +272,7 @@ export class MemStorage implements IStorage {
     this.programas = new Map();
     this.diasPrograma = new Map();
     this.peticionesOracionMap = new Map();
+    this.eventosMap = new Map();
     
     this.currentId = 1;
     
@@ -1667,6 +1692,88 @@ async getJobSystemStats(): Promise<JobSystemStats> {
     this.peticionesOracionMap.set(id, updated);
     return updated;
   }
+
+  // ============= MIEMBROS DE LA IGLESIA =============
+
+  async getMiembros(): Promise<Miembro[]> {
+    return [];
+  }
+
+  async getMiembro(id: number): Promise<Miembro | undefined> {
+    return undefined;
+  }
+
+  async createMiembro(data: InsertMiembro): Promise<Miembro> {
+    const id = this.currentId++;
+    const miembro: Miembro = {
+      id,
+      nombre: data.nombre,
+      iglesia: data.iglesia ?? "Linaje Real",
+      estado: data.estado ?? "activo",
+      fechaRegistro: new Date(),
+    };
+    return miembro;
+  }
+
+  async findMiembroByNombreIglesia(nombre: string, iglesia: string): Promise<Miembro | undefined> {
+    return undefined;
+  }
+
+  async deleteMiembro(id: number): Promise<void> {
+    // no-op in memory
+  }
+
+  // ============= EVENTOS DE LA IGLESIA =============
+
+  async getEventos(): Promise<Evento[]> {
+    return Array.from(this.eventosMap.values()).sort((a, b) => {
+      const dateA = a.fecha?.getTime() ?? 0;
+      const dateB = b.fecha?.getTime() ?? 0;
+      return dateA - dateB;
+    });
+  }
+
+  async getEvento(id: number): Promise<Evento | undefined> {
+    return this.eventosMap.get(id);
+  }
+
+  async createEvento(data: InsertEvento): Promise<Evento> {
+    const id = this.currentId++;
+    const now = new Date();
+    const evento: Evento = {
+      id,
+      titulo: data.titulo,
+      descripcion: data.descripcion ?? null,
+      fecha: data.fecha,
+      hora: data.hora,
+      lugar: data.lugar ?? null,
+      tipo: data.tipo ?? "culto",
+      imageUrl: data.imageUrl ?? null,
+      publicado: data.publicado ?? true,
+      creadoEn: now,
+      actualizadoEn: now,
+    };
+    this.eventosMap.set(id, evento);
+    return evento;
+  }
+
+  async updateEvento(id: number, data: Partial<InsertEvento>): Promise<Evento> {
+    const existing = this.eventosMap.get(id);
+    if (!existing) throw new Error(`Evento ${id} no encontrado`);
+    const updated: Evento = { ...existing, ...data, actualizadoEn: new Date() } as Evento;
+    this.eventosMap.set(id, updated);
+    return updated;
+  }
+
+  async deleteEvento(id: number): Promise<void> {
+    this.eventosMap.delete(id);
+  }
+
+  async toggleEventoPublicado(id: number): Promise<Evento> {
+    const e = this.eventosMap.get(id);
+    if (!e) throw new Error(`Evento ${id} no encontrado`);
+    return this.updateEvento(id, { publicado: !e.publicado });
+  }
 }
 
 // ============= DATABASE STORAGE (overrides Programas / Días with real DB) =============
@@ -1825,6 +1932,73 @@ export class DatabaseStorage extends MemStorage {
       .returning();
     if (!rows[0]) throw new Error(`Petición ${id} no encontrada`);
     return rows[0];
+  }
+
+  // ── Miembros de la Iglesia ────────────────────────────────────────────────
+
+  override async getMiembros(): Promise<Miembro[]> {
+    return db.select().from(miembros).orderBy(sql`${miembros.fechaRegistro} DESC`);
+  }
+
+  override async getMiembro(id: number): Promise<Miembro | undefined> {
+    const rows = await db.select().from(miembros).where(eq(miembros.id, id));
+    return rows[0];
+  }
+
+  override async createMiembro(data: InsertMiembro): Promise<Miembro> {
+    const rows = await db.insert(miembros).values(data).returning();
+    return rows[0];
+  }
+
+  override async findMiembroByNombreIglesia(nombre: string, iglesia: string): Promise<Miembro | undefined> {
+    const rows = await db
+      .select()
+      .from(miembros)
+      .where(and(
+        sql`LOWER(${miembros.nombre}) = LOWER(${nombre})`,
+        sql`LOWER(${miembros.iglesia}) = LOWER(${iglesia})`
+      ));
+    return rows[0];
+  }
+
+  override async deleteMiembro(id: number): Promise<void> {
+    await db.delete(miembros).where(eq(miembros.id, id));
+  }
+
+  // ── Eventos de la Iglesia ─────────────────────────────────────────────────
+
+  override async getEventos(): Promise<Evento[]> {
+    return db.select().from(eventos).orderBy(asc(eventos.fecha));
+  }
+
+  override async getEvento(id: number): Promise<Evento | undefined> {
+    const rows = await db.select().from(eventos).where(eq(eventos.id, id));
+    return rows[0];
+  }
+
+  override async createEvento(data: InsertEvento): Promise<Evento> {
+    const rows = await db.insert(eventos).values(data).returning();
+    return rows[0];
+  }
+
+  override async updateEvento(id: number, data: Partial<InsertEvento>): Promise<Evento> {
+    const rows = await db
+      .update(eventos)
+      .set({ ...data, actualizadoEn: new Date() })
+      .where(eq(eventos.id, id))
+      .returning();
+    if (!rows[0]) throw new Error(`Evento ${id} no encontrado`);
+    return rows[0];
+  }
+
+  override async deleteEvento(id: number): Promise<void> {
+    await db.delete(eventos).where(eq(eventos.id, id));
+  }
+
+  override async toggleEventoPublicado(id: number): Promise<Evento> {
+    const current = await this.getEvento(id);
+    if (!current) throw new Error(`Evento ${id} no encontrado`);
+    return this.updateEvento(id, { publicado: !current.publicado });
   }
 }
 

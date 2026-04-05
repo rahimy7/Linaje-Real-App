@@ -49,9 +49,12 @@ interface Thread {
   views?: number;
 }
 
-interface User {
+interface Miembro {
   id: number;
-  createdAt?: string;
+  nombre: string;
+  iglesia: string;
+  estado: string;
+  fechaRegistro?: string;
 }
 
 export default function IglesiaDashboard() {
@@ -92,11 +95,11 @@ export default function IglesiaDashboard() {
     }
   });
 
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ['/api/users'],
+  const { data: miembros = [] } = useQuery<Miembro[]>({
+    queryKey: ['/api/miembros'],
     queryFn: async () => {
-      const res = await fetch('/api/users');
-      if (!res.ok) throw new Error('Error al cargar usuarios');
+      const res = await fetch('/api/miembros');
+      if (!res.ok) throw new Error('Error al cargar miembros');
       return res.json();
     }
   });
@@ -111,7 +114,7 @@ export default function IglesiaDashboard() {
   
   const totalInteracciones = threads.reduce((sum, t) => sum + (t.views || 0), 0);
   
-  const miembrosTotal = users.length;
+  const miembrosTotal = miembros.length;
   
   // Calcular actividad reciente
   const getRecentActivities = () => {

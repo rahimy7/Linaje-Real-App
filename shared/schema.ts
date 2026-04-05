@@ -419,6 +419,24 @@ export type JobApplication = typeof jobApplications.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activities.$inferSelect;
 
+// ── Miembros de la Iglesia (identificación desde app móvil) ────────────────────
+export const miembros = pgTable("miembros", {
+  id: serial("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  iglesia: text("iglesia").notNull().default("Linaje Real"),
+  estado: varchar("estado", { length: 30 }).notNull().default("activo"),
+  fechaRegistro: timestamp("fecha_registro").defaultNow(),
+});
+
+export const insertMiembroSchema = createInsertSchema(miembros).pick({
+  nombre: true,
+  iglesia: true,
+  estado: true,
+});
+
+export type InsertMiembro = z.infer<typeof insertMiembroSchema>;
+export type Miembro = typeof miembros.$inferSelect;
+
 // ── Peticiones de Oración ──────────────────────────────────────────────────────
 export const peticionesOracion = pgTable("peticiones_oracion", {
   id: serial("id").primaryKey(),
@@ -444,6 +462,34 @@ export const insertPeticionOracionSchema = createInsertSchema(peticionesOracion)
 export type InsertPeticionOracion = z.infer<typeof insertPeticionOracionSchema>;
 export type PeticionOracion = typeof peticionesOracion.$inferSelect;
 
+// ── Eventos de la Iglesia ──────────────────────────────────────────────────────
+export const eventos = pgTable("eventos", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descripcion: text("descripcion"),
+  fecha: timestamp("fecha").notNull(),
+  hora: varchar("hora", { length: 30 }).notNull(),
+  lugar: text("lugar"),
+  tipo: varchar("tipo", { length: 30 }).notNull().default("culto"),
+  imageUrl: text("image_url"),
+  publicado: boolean("publicado").default(true),
+  creadoEn: timestamp("creado_en").defaultNow(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow(),
+});
+
+export const insertEventoSchema = createInsertSchema(eventos).pick({
+  titulo: true,
+  descripcion: true,
+  fecha: true,
+  hora: true,
+  lugar: true,
+  tipo: true,
+  imageUrl: true,
+  publicado: true,
+});
+
+export type InsertEvento = z.infer<typeof insertEventoSchema>;
+export type Evento = typeof eventos.$inferSelect;
 
 // Relations
 export const userRelations = relations(users, ({ many }) => ({

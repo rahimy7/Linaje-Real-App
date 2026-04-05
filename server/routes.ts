@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { z } from "zod";
 import { storage } from "./storage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -943,6 +944,58 @@ app.patch("/api/eventos/:id/toggle-publicado", async (req, res) => {
     res.status(500).json({ error: "Error al cambiar estado del evento" });
   }
 });
+
+  // ── Endpoint público para peticiones de oración (uso desde apps externas) ───
+
+  const peticionPublicaSchema = z.object({
+    titulo: z.string().min(1, "El título es requerido").max(80),
+    descripcion: z.string().max(500).optional().default(""),
+    nombreUsuario: z.string().max(100).optional().default("Anónimo"),
+    esAnonimo: z.boolean().optional().default(false),
+    categoria: z.string().max(80).optional().default("general"),
+    iglesia: z.string().max(100).optional().default("Linaje Real"),
+  });
+
+  app.post("/api/public/oraciones", async (req, res) => {
+    const result = peticionPublicaSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        error: "Datos inválidos",
+        detalles: result.error.flatten().fieldErrors,
+      });
+    }
+    try {
+      const { titulo, descripcion, nombreUsuario, esAnonimo, categoria, iglesia } = result.data;
+      const autor = esAnonimo ? "Anónimo" : nombreUsuario;
+
+      // Registrar como miembro si no es anónimo y aún no existe
+      let miembro = null;
+      if (!esAnonimo && nombreUsuario !== "Anónimo") {
+        miembro = await storage.findMiembroByNombreIglesia(nombreUsuario, iglesia);
+        if (!miembro) {
+          miembro = await storage.createMiembro({ nombre: nombreUsuario, iglesia });
+        }
+      }
+
+      const peticion = await storage.createPeticionOracion({
+        peticion: titulo,
+        autor,
+        estado: "pendiente",
+        contadorOraciones: 0,
+        privada: esAnonimo,
+        categoria,
+      });
+
+      res.status(201).json({
+        success: true,
+        id: peticion.id,
+        miembroId: miembro?.id ?? null,
+        mensaje: "Petición de oración enviada correctamente",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error al guardar la petición de oración" });
+    }
+  });
 
   const httpServer = createServer(app);
 

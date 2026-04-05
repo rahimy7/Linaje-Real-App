@@ -464,3 +464,14 @@ export async function generateProgramaPdf(
   const filename = `${programa.nombre.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, "").replace(/\s+/g, "_")}.pdf`;
   doc.save(filename);
 }
+
+// ── Export por día individual ──────────────────────────────────────────────────
+export async function generateDiaPdf(
+  programa: Programa,
+  dia: DiaPrograma,
+): Promise<void> {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  drawDay(doc, dia);
+  const safeTitulo = dia.titulo.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, "").replace(/\s+/g, "_");
+  doc.save(`Dia-${dia.numero}-${safeTitulo}.pdf`);
+}

@@ -789,6 +789,35 @@ app.post("/api/oraciones", async (req, res) => {
   }
 });
 
+// ============= PUBLIC ENDPOINT (acceso externo sin autenticación) =============
+app.post("/api/public/oraciones", async (req, res) => {
+  try {
+    const { peticion, autor, privada, categoria } = req.body;
+    if (!peticion || typeof peticion !== "string" || peticion.trim().length === 0) {
+      return res.status(400).json({ error: "El campo 'peticion' es requerido" });
+    }
+    if (!autor || typeof autor !== "string" || autor.trim().length === 0) {
+      return res.status(400).json({ error: "El campo 'autor' es requerido" });
+    }
+    if (peticion.trim().length > 1000) {
+      return res.status(400).json({ error: "El campo 'peticion' no puede superar los 1000 caracteres" });
+    }
+    if (autor.trim().length > 100) {
+      return res.status(400).json({ error: "El campo 'autor' no puede superar los 100 caracteres" });
+    }
+    const nuevaPeticion = await storage.createPeticionOracion({
+      peticion: peticion.trim(),
+      autor: autor.trim(),
+      privada: typeof privada === "boolean" ? privada : false,
+      categoria: typeof categoria === "string" && categoria.trim().length > 0 ? categoria.trim() : "general",
+      estado: "pendiente",
+    });
+    res.status(201).json(nuevaPeticion);
+  } catch (error) {
+    res.status(500).json({ error: "Error al registrar la petición de oración" });
+  }
+});
+
 app.put("/api/oraciones/:id", async (req, res) => {
   try {
     const peticion = await storage.updatePeticionOracion(parseInt(req.params.id), req.body);
